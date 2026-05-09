@@ -1,0 +1,14 @@
+{
+  "name": "whiteglovehusk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "calibrate": "ts-node brain/indexer/calibration.ts",
+    "shatter": "ts-node brain/shatter.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.40",
+    "typescript": "^5.9.3"
+  }
+}

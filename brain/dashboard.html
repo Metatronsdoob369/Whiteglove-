@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sovereign Medical Intelligence | Spectral Map</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --accent: #00f2ff;
+            --secondary: #7000ff;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: var(--bg);
+            color: white;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 20px; left: 20px;
+            width: 350px;
+            padding: 24px;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            pointer-events: all;
+            z-index: 10;
+        }
+
+        .stats {
+            position: absolute;
+            bottom: 20px; right: 20px;
+            padding: 16px;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        h1 { font-size: 18px; margin: 0 0 8px 0; color: var(--accent); }
+        p { font-size: 13px; color: #aaa; margin: 0 0 20px 0; }
+
+        .metric {
+            display: flex; justify-content: space-between;
+            margin-bottom: 12px; font-size: 14px;
+        }
+
+        .metric span:last-child { color: var(--accent); font-weight: bold; }
+
+        .slider-container { margin-top: 20px; }
+        input[type=range] { width: 100%; accent-color: var(--accent); }
+
+        .resonance-pulse {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px; height: 2px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 100px 50px var(--accent);
+            opacity: 0.2;
+            animation: pulse 4s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.1; }
+            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.3; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0.1; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="resonance-pulse"></div>
+
+    <div class="overlay">
+        <h1>SOVEREIGN MEDICAL HUSK</h1>
+        <p>4D Spectral Landmark Heatmap (v1.0)</p>
+        
+        <div class="metric">
+            <span>Landmarks Indexed</span>
+            <span>15,580</span>
+        </div>
+        <div class="metric">
+            <span>Mesh Resonance</span>
+            <span>DIAMOND-STABLE</span>
+        </div>
+        <div class="metric">
+            <span>Query Drift</span>
+            <span id="driftValue">0.09</span>
+        </div>
+
+        <div class="slider-container">
+            <label style="font-size: 12px; color: #888;">HAMMING THRESHOLD</label>
+            <input type="range" min="0" max="100" value="45" id="thresholdSlider">
+        </div>
+
+        <div style="margin-top: 24px; font-size: 12px; color: #666;">
+            ACTIVE CITATIONS:<br>
+            <span style="color: #fff;">• med_027316 (Bleeding Control)</span><br>
+            <span style="color: #fff;">• med_045892 (Laceration Mgmt)</span>
+        </div>
+    </div>
+
+    <div class="stats">
+        PI 5 | 3GHZ | VULKAN | 3072-D
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('thresholdSlider');
+        const driftText = document.getElementById('driftValue');
+
+        let width, height;
+        const points = [];
+        const numPoints = 15580;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Generate points in a topological shell
+        for (let i = 0; i < numPoints; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 150 + Math.random() * 400;
+            points.push({
+                x: Math.cos(angle) * radius,
+                y: Math.sin(angle) * radius,
+                z: (Math.random() - 0.5) * 200,
+                baseRadius: radius,
+                angle: angle,
+                speed: 0.0002 + Math.random() * 0.0005,
+                color: Math.random() > 0.95 ? '#00f2ff' : '#7000ff'
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const threshold = slider.value / 100;
+
+            points.forEach(p => {
+                p.angle += p.speed;
+                const curX = centerX + Math.cos(p.angle) * p.baseRadius;
+                const curY = centerY + Math.sin(p.angle) * p.baseRadius;
+
+                const distance = p.baseRadius / 550;
+                
+                // Only highlight shards within the resonance threshold
+                if (distance < threshold) {
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(curX, curY, distance < 0.3 ? 2 : 1, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (Math.random() > 0.998) {
+                        ctx.strokeStyle = 'rgba(0, 242, 255, 0.1)';
+                        ctx.beginPath();
+                        ctx.moveTo(centerX, centerY);
+                        ctx.lineTo(curX, curY);
+                        ctx.stroke();
+                    }
+                } else {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillRect(curX, curY, 1, 1);
+                }
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        slider.oninput = function() {
+            driftText.innerText = (this.value / 100).toFixed(2);
+        };
+
+        draw();
+    </script>
+</body>
+</html>

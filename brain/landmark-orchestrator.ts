@@ -125,7 +125,14 @@ export class LandmarkOrchestrator {
    */
   async saveIndex(filePath: string) {
     const data = {
-      landmarks: Array.from(this.landmarks.entries()),
+      index: this.index.map((entry) => ({
+        shardId: entry.shardId,
+        title: entry.title,
+        signatureHex: entry.signature.toString(16),
+        source: entry.source,
+        contentPreview: entry.contentPreview,
+        frequency: entry.frequency
+      })),
       indexedCount: this.indexedCount
     };
     await fs.promises.writeFile(filePath, JSON.stringify(data));
@@ -136,8 +143,22 @@ export class LandmarkOrchestrator {
     if (!fs.existsSync(filePath)) return false;
     const raw = await fs.promises.readFile(filePath, 'utf-8');
     const data = JSON.parse(raw);
-    this.landmarks = new Map(data.landmarks);
-    this.indexedCount = data.indexedCount;
+    this.index.length = 0;
+    if (Array.isArray(data.index)) {
+      for (const row of data.index) {
+        this.index.push({
+          shardId: row.shardId,
+          title: row.title || "Untitled",
+          signature: BigInt(`0x${row.signatureHex}`),
+          source: row.source,
+          contentPreview: row.contentPreview || "",
+          frequency: row.frequency || 0
+        });
+      }
+    }
+    this.indexedCount = this.index.length;
+    this.initialized = true;
+    this.rebalanceHotBuffer();
     console.log(`🔋 [HUSK] Index restored: ${this.indexedCount} landmarks`);
     return true;
   }

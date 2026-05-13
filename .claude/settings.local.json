@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Volumes/ARCHIVE/Emergency_Information/Sovereign_Agent_Husk/**)",
+      "Read(//Volumes/ARCHIVE/Emergency_Information/kiwix-apple-src/**)",
+      "Bash(git -C /Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk log --oneline -10)",
+      "Bash(git -C /Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk status)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git -C /Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk add README.md .claude/)",
+      "Bash(git -C /Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk commit -m ' *)"
+    ]
+  }
+}

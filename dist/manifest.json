@@ -1,0 +1,20 @@
+{
+  "name": "whiteglove-agent-husk",
+  "version": "1.0.0-mvp",
+  "description": "Sovereign tokenless memory — Faith-Less retrieval over massive datasets. No fine-tuning required.",
+  "api": {
+    "port": 4880,
+    "routes": {
+      "query":   "POST /query",
+      "health":  "GET  /health",
+      "payload": "GET  /payload/:sector"
+    }
+  },
+  "vault": {
+    "shards": 57,
+    "algorithm": "SimHash-128",
+    "dimensions": "3072-D Spectral Landmark Projection",
+    "threshold": 0.45
+  },
+  "built": "2026-05-15T00:29:39Z"
+}

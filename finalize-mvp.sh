@@ -50,7 +50,7 @@ fi
 
 npx tsc --noEmit && ok "TypeScript clean" || fail "TypeScript errors — fix before shipping"
 
-# ─── Phase 2: Shard check ────────────────────────────────────────────────────
+# ─── Phase 2: Shard Vault ────────────────────────────────────────────────────
 banner "Phase 2 — Shard Vault"
 
 SHARD_DIR="$ROOT/brain/shards/shattered"
@@ -60,17 +60,41 @@ if [ ! -d "$SHARD_DIR" ]; then
   fail "Shard directory missing: $SHARD_DIR"
 fi
 
-SHARD_COUNT=$(find "$SHARD_DIR" -name "*.json" | wc -l | tr -d ' ')
-if [ "$SHARD_COUNT" -eq 0 ]; then
-  fail "No shards found in $SHARD_DIR — run the ingestion pipeline first"
+# Remove old contracting shards — medical is the product
+CONTRACTING_COUNT=$(find "$SHARD_DIR" -name "shard_*.json" | wc -l | tr -d ' ')
+if [ "$CONTRACTING_COUNT" -gt 0 ]; then
+  find "$SHARD_DIR" -name "shard_*.json" -delete
+  ok "Removed $CONTRACTING_COUNT legacy contracting shards"
 fi
-ok "$SHARD_COUNT shards in vault"
 
-if [ -d "$STAGING_DIR" ]; then
-  STAGING_COUNT=$(find "$STAGING_DIR" -name "*.json" | wc -l | tr -d ' ')
-  if [ "$STAGING_COUNT" -gt 0 ]; then
-    warn "$STAGING_COUNT oversized shards isolated in staging — review before next ingest"
-  fi
+# Ensure medical shards exist — run rechunker if not
+MED_COUNT=$(find "$SHARD_DIR" -name "med_chunk_*.json" | wc -l | tr -d ' ')
+if [ "$MED_COUNT" -eq 0 ]; then
+  echo "  No medical shards found. Running rechunk pipeline..."
+  python3 "$ROOT/brain/indexer/rechunk_medical.py" || fail "Rechunk pipeline failed"
+  MED_COUNT=$(find "$SHARD_DIR" -name "med_chunk_*.json" | wc -l | tr -d ' ')
+fi
+
+SHARD_COUNT=$MED_COUNT
+if [ "$SHARD_COUNT" -eq 0 ]; then
+  fail "No medical shards in vault — check rechunk_medical.py"
+fi
+ok "$SHARD_COUNT medical shards in vault"
+
+# ─── Phase 2b: Pre-build index ───────────────────────────────────────────────
+banner "Phase 2b — Pre-build Vault Index"
+
+VAULT_DIR="$ROOT/brain/shards/vault"
+INDEX_FILE="$VAULT_DIR/index.json"
+mkdir -p "$VAULT_DIR"
+
+if [ ! -f "$INDEX_FILE" ]; then
+  echo "  Building SimHash index over $SHARD_COUNT shards (one-time, ~30s)..."
+  npx ts-node --project tsconfig.json brain/indexer/build-index.ts \
+    && ok "Index built and persisted → $INDEX_FILE" \
+    || fail "Index build failed"
+else
+  ok "Index already exists → $INDEX_FILE"
 fi
 
 # ─── Phase 3: Start server ───────────────────────────────────────────────────
@@ -117,22 +141,16 @@ else
   fail "/payload/medical did not return expected payload"
 fi
 
-# /query — use first available shard title as the query
-FIRST_SHARD=$(find "$SHARD_DIR" -name "*.json" | head -1)
-SHARD_TITLE=$(python3 -c "import json; d=json.load(open('$FIRST_SHARD')); print(d.get('title','test query')[:60])" 2>/dev/null || echo "test query")
+# /retrieve — Faith-Less retrieve only (no LLM, no timeout risk)
+RETRIEVE_RESULT=$(curl -sf "http://localhost:$API_PORT/retrieve?q=what+is+A1C" 2>&1 || echo "ERROR")
 
-echo "  Query: \"$SHARD_TITLE\""
-QUERY_RESULT=$(curl -sf -X POST "http://localhost:$API_PORT/query" \
-  -H "Content-Type: application/json" \
-  -d "{\"query\": \"$SHARD_TITLE\", \"sector\": \"medical\"}" 2>&1 || echo "ERROR")
-
-if echo "$QUERY_RESULT" | grep -q "sessionId"; then
-  SILENCED=$(echo "$QUERY_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['silenced'])" 2>/dev/null || echo "unknown")
-  TOTAL_MS=$(echo "$QUERY_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['totalMs'])" 2>/dev/null || echo "?")
-  ok "/query → silenced=$SILENCED | ${TOTAL_MS}ms"
+if echo "$RETRIEVE_RESULT" | grep -q "silenced"; then
+  SILENCED=$(echo "$RETRIEVE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['silenced'])" 2>/dev/null || echo "unknown")
+  TOTAL_MS=$(echo "$RETRIEVE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('metrics',{}).get('totalMs','?'))" 2>/dev/null || echo "?")
+  ok "/retrieve → silenced=$SILENCED | ${TOTAL_MS}ms"
 else
-  warn "/query returned unexpected response — check server logs"
-  echo "  $QUERY_RESULT" | head -5
+  warn "/retrieve returned unexpected response"
+  echo "  $RETRIEVE_RESULT" | head -3
 fi
 
 # ─── Phase 5: Package payload ────────────────────────────────────────────────

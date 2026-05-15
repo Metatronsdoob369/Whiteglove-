@@ -105,6 +105,33 @@ async function router(
     return;
   }
 
+  // GET /retrieve — Faith-Less retrieve only, no LLM inference
+  if (method === "GET" && url.pathname === "/retrieve") {
+    const query = url.searchParams.get("q");
+    const shardDirParam = url.searchParams.get("shardDir");
+    if (!query) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: "Missing query param: q" }));
+      return;
+    }
+    const shardDir = shardDirParam
+      ? path.resolve(shardDirParam)
+      : path.resolve(__dirname, "../brain/shards/shattered");
+
+    const { LandmarkOrchestrator } = await import("../brain/landmark-orchestrator");
+    const orchestrator = new LandmarkOrchestrator({ shardDir });
+
+    // Load persisted index if available, otherwise build
+    const indexPath = path.join(shardDir, "..", "vault", "index.json");
+    const loaded = await orchestrator.loadIndex(indexPath);
+    if (!loaded) await orchestrator.buildIndex();
+
+    const result = await orchestrator.retrieve(query);
+    res.writeHead(200);
+    res.end(JSON.stringify(result));
+    return;
+  }
+
   // GET /payload/:role
   if (method === "GET" && url.pathname.startsWith("/payload/")) {
     const sector = url.pathname.replace("/payload/", "").trim() || "general";

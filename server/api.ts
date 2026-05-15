@@ -19,6 +19,9 @@ import { buildDefaultRegistry } from "../agent/tool-registry";
 import type { RoleContract } from "../agent/types";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 4880;
+const DEFAULT_VAULT_INDEX = process.env.WG_VAULT_INDEX
+  ?? path.resolve(__dirname, "../brain/shards/vault/index.json");
+const DEFAULT_SHARD_DIR   = path.resolve(__dirname, "../brain/shards/shattered");
 
 // ─── Role Factory ─────────────────────────────────────────────────────────────
 // Build a role contract from a request. Callers bring their own sector/shardDir.
@@ -122,7 +125,9 @@ async function router(
     const orchestrator = new LandmarkOrchestrator({ shardDir });
 
     // Load persisted index if available, otherwise build
-    const indexPath = path.join(shardDir, "..", "vault", "index.json");
+    const indexPath = fs.existsSync(DEFAULT_VAULT_INDEX)
+      ? DEFAULT_VAULT_INDEX
+      : path.join(shardDir, "..", "vault", "index.json");
     const loaded = await orchestrator.loadIndex(indexPath);
     if (!loaded) await orchestrator.buildIndex();
 

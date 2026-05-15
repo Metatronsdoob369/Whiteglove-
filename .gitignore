@@ -1,3 +1,8 @@
-brain/shards/
 node_modules/
-*.index
+dist/
+release/
+exports/
+brain/shards/
+.DS_Store
+*.log
+.env

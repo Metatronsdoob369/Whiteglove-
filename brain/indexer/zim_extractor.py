@@ -43,6 +43,12 @@ def extract_zim():
             if not content_bytes:
                 continue
                 
+            # Skip massive files that would choke the retrieval engine
+            # 1MB cap for a single shard
+            if len(content_bytes) > 1024 * 1024:
+                print(f"⚠️ Skipping oversized entry ({len(content_bytes) / 1024:.1f}KB): {path}")
+                continue
+
             if hasattr(content_bytes, 'tobytes'):
                 content_bytes = content_bytes.tobytes()
                 

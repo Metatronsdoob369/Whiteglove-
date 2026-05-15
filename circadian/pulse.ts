@@ -121,8 +121,8 @@ export class CircadianPulse {
       this.lastShardCount = this.countShards();
 
       // 2. Integrity check — verify all shard files parse correctly
-      console.log("🌙 [PULSE:DREAM] Phase 2: Verifying shard integrity...");
-      const integrity = this.verifyShardsIntegrity();
+      console.log("🌙 [PULSE:DREAM] Phase 2: Verifying shard integrity (batched)...");
+      const integrity = await this.verifyShardsIntegrity();
 
       // 3. Diagnostic snapshot
       const diag = this.orchestrator.diagnostics();
@@ -133,19 +133,25 @@ export class CircadianPulse {
       console.log(`   Integrity:      ${integrity.valid}/${integrity.total} valid`);
 
       if (integrity.corrupted.length > 0) {
-        console.warn(`   ⚠️ Corrupted:   ${integrity.corrupted.join(", ")}`);
+        console.warn(`   ⚠️ Corrupted:   ${integrity.corrupted.length} shards detected.`);
+        if (integrity.corrupted.length <= 10) {
+          console.warn(`   ⚠️ Details:     ${integrity.corrupted.join(", ")}`);
+        }
       }
 
       this.logAudit("DREAM", {
         indexSize: diag.indexSize,
         cacheSize: diag.cacheSize,
         integrityValid: integrity.valid,
-        integrityCorrupted: integrity.corrupted
+        integrityCorrupted: integrity.corrupted.length
       });
 
+    } catch (err: any) {
+      console.error("❌ [PULSE:DREAM] CRITICAL FAILURE during consolidation:", err);
+      this.logAudit("DREAM_FAILURE", { error: err.message, stack: err.stack });
     } finally {
       this.isDreaming = false;
-      console.log("🌙 [PULSE:DREAM] Consolidation complete.");
+      console.log("🌙 [PULSE:DREAM] Consolidation cycle exited.");
     }
   }
 
@@ -178,19 +184,36 @@ export class CircadianPulse {
   /**
    * Verify all shard JSON files are parseable and have required fields.
    */
-  private verifyShardsIntegrity(): { total: number; valid: number; corrupted: string[] } {
+  private async verifyShardsIntegrity(): Promise<{ total: number; valid: number; corrupted: string[] }> {
+    if (!fs.existsSync(SHARD_DIR)) return { total: 0, valid: 0, corrupted: [] };
+    
     const files = fs.readdirSync(SHARD_DIR).filter((f: string) => f.endsWith(".json"));
     const corrupted: string[] = [];
+    const BATCH_SIZE = 50;
+    const MAX_FILE_SIZE = 1024 * 1024; // 1MB
 
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const filePath = path.join(SHARD_DIR, file);
+
       try {
-        const raw = fs.readFileSync(path.join(SHARD_DIR, file), "utf-8");
+        const stats = fs.statSync(filePath);
+        if (stats.size > MAX_FILE_SIZE) {
+          corrupted.push(`${file} (OVERSIZED: ${(stats.size / 1024).toFixed(1)}KB)`);
+          continue;
+        }
+
+        const raw = fs.readFileSync(filePath, "utf-8");
         const parsed = JSON.parse(raw);
         if (!parsed.id || !parsed.content || !parsed.source) {
           corrupted.push(file);
         }
       } catch {
         corrupted.push(file);
+      }
+
+      if (i % BATCH_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
       }
     }
 
@@ -204,7 +227,7 @@ export class CircadianPulse {
   /**
    * Append a structured audit log entry.
    */
-  private logAudit(cycle: "WAKE" | "DREAM", data: Record<string, unknown>): void {
+  private logAudit(cycle: "WAKE" | "DREAM" | "DREAM_FAILURE", data: Record<string, unknown>): void {
     const entry = {
       timestamp: new Date().toISOString(),
       cycle,

@@ -163,46 +163,83 @@ export class LandmarkOrchestrator {
     return true;
   }
 
+  /**
+   * Build the in-memory SimHash index from all shards on disk.
+   * Hardened for memory safety and large-scale datasets.
+   */
   async buildIndex(limit?: number): Promise<void> {
     const startMs = Date.now();
     this.index.length = 0;
+    const MAX_FILE_SIZE = 1024 * 1024; // 1MB safety cap per shard
+    const BATCH_SIZE = 100;
+
+    if (!fs.existsSync(this.config.shardDir)) {
+      console.warn(`⚠️ [ORCHESTRATOR] Shard directory not found: ${this.config.shardDir}`);
+      return;
+    }
 
     const files = fs.readdirSync(this.config.shardDir)
       .filter((f: string) => f.endsWith(".json"))
       .sort();
 
+    console.log(`💎 [ORCHESTRATOR] Building index for ${files.length} shards...`);
+
     let processed = 0;
-    for (const file of files) {
+    let skipped = 0;
+
+    for (let i = 0; i < files.length; i++) {
       if (limit && processed >= limit) break;
-      const raw = fs.readFileSync(path.join(this.config.shardDir, file), "utf-8");
-      const shard = JSON.parse(raw);
+      
+      const file = files[i];
+      const filePath = path.join(this.config.shardDir, file);
+      
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.size > MAX_FILE_SIZE) {
+          console.warn(`⚠️ [ORCHESTRATOR] Skipping oversized shard (${(stats.size / 1024).toFixed(1)}KB): ${file}`);
+          skipped++;
+          continue;
+        }
 
-      const signature = this.guard.simHash128FromText(shard.content, shard.source);
+        const raw = fs.readFileSync(filePath, "utf-8");
+        const shard = JSON.parse(raw);
 
-      this.index.push({
-        shardId: shard.id || shard.shardId,
-        title: shard.title || "Untitled",
-        signature,
-        source: shard.source,
-        contentPreview: shard.content.slice(0, 100).replace(/\n/g, " "),
-        frequency: 0
-      });
+        // Required fields check
+        if (!shard.content) {
+          console.warn(`⚠️ [ORCHESTRATOR] Skipping invalid shard (missing content): ${file}`);
+          skipped++;
+          continue;
+        }
 
-      // Pre-warm cache with the shard
-      this.cache.put({
-        id: shard.id,
-        content: shard.content,
-        source: shard.source
-      });
+        const signature = this.guard.simHash128FromText(shard.content, shard.source || "unknown");
 
-      processed++;
+        this.index.push({
+          shardId: shard.id || shard.shardId || file.replace(".json", ""),
+          title: shard.title || "Untitled",
+          signature,
+          source: shard.source || "unknown",
+          contentPreview: shard.content.slice(0, 100).replace(/\n/g, " "),
+          frequency: 0
+        });
+
+        processed++;
+
+        // Every BATCH_SIZE files, yield to the event loop to allow GC
+        if (processed % BATCH_SIZE === 0) {
+          await new Promise(resolve => setImmediate(resolve));
+        }
+
+      } catch (err) {
+        console.error(`❌ [ORCHESTRATOR] Error processing shard ${file}:`, err);
+        skipped++;
+      }
     }
 
     this.initialized = true;
     this.indexedCount = this.index.length;
     this.rebalanceHotBuffer();
     const elapsed = Date.now() - startMs;
-    console.log(`💎 [ORCHESTRATOR] Index built: ${this.indexedCount} shards in ${elapsed}ms`);
+    console.log(`💎 [ORCHESTRATOR] Index built: ${this.indexedCount} active shards (${skipped} skipped) in ${elapsed}ms`);
   }
 
   private rebalanceHotBuffer() {

@@ -1,14 +1,37 @@
 {
-  "name": "whiteglovehusk",
-  "version": "0.1.0",
+  "name": "whiteglove",
+  "version": "1.0.0-mvp",
+  "description": "Sovereign tokenless memory. Embed once. Query forever.",
   "private": true,
   "type": "commonjs",
+  "main": "dist/server/main.js",
   "scripts": {
+    "build": "tsc",
+    "start": "node dist/server/main.js",
+    "dev": "ts-node server/api.ts",
     "calibrate": "ts-node brain/indexer/calibration.ts",
-    "shatter": "ts-node brain/shatter.ts"
+    "shatter": "ts-node brain/shatter.ts",
+    "build-index": "ts-node brain/indexer/build-index.ts",
+    "pkg:mac": "pkg dist/server/main.js --targets node18-macos-x64 --output release/spectral-agent-macos --compress GZip",
+    "pkg:win": "pkg dist/server/main.js --targets node18-win-x64 --output release/spectral-agent-win.exe --compress GZip",
+    "pkg:linux": "pkg dist/server/main.js --targets node18-linux-x64 --output release/spectral-agent-linux --compress GZip",
+    "pkg:all": "npm run build && npm run pkg:mac && npm run pkg:win && npm run pkg:linux",
+    "finalize": "bash finalize-mvp.sh"
+  },
+  "pkg": {
+    "assets": [
+      "dist/**/*"
+    ],
+    "targets": [
+      "node18-macos-x64",
+      "node18-win-x64",
+      "node18-linux-x64"
+    ]
   },
   "devDependencies": {
     "@types/node": "^20.19.40",
+    "pkg": "^5.8.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
 }

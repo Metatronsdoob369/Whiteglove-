@@ -139,18 +139,31 @@ export class SimHashDriftGuard {
    */
   private simHash64(tokens: Uint32Array, personSalt: Buffer): bigint {
     const acc = new Int32Array(64);
+    // Pre-calculate salt hash part
+    let saltHash = 0xcbf29ce484222325n;
+    for (let i = 0; i < personSalt.length; i++) {
+      saltHash ^= BigInt(personSalt[i]);
+      saltHash = (saltHash * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
 
     for (let i = 0; i < tokens.length; i++) {
-      const tokenHash = this.hashToken(tokens[i], personSalt);
-      for (let bit = 0n; bit < DIMENSIONS_64; bit++) {
-        acc[Number(bit)] += ((tokenHash >> bit) & 1n) === 1n ? 1 : -1;
+      let tokenHash = saltHash ^ BigInt(tokens[i]);
+      tokenHash = (tokenHash * 0x100000001b3n) & 0xffffffffffffffffn;
+      
+      // Split 64-bit BigInt into two 32-bit integers for faster bitwise ops
+      let low = Number(tokenHash & 0xffffffffn) | 0;
+      let high = Number((tokenHash >> 32n) & 0xffffffffn) | 0;
+
+      for (let bit = 0; bit < 32; bit++) {
+        acc[bit] += (low & (1 << bit)) ? 1 : -1;
+        acc[bit + 32] += (high & (1 << bit)) ? 1 : -1;
       }
     }
 
     let sig = 0n;
-    for (let i = 0n; i < DIMENSIONS_64; i++) {
-      if (acc[Number(i)] > 0) {
-        sig |= (1n << i);
+    for (let i = 0; i < 64; i++) {
+      if (acc[i] > 0) {
+        sig |= (1n << BigInt(i));
       }
     }
     return sig;
@@ -162,13 +175,18 @@ export class SimHashDriftGuard {
    * so we prepend the salt to the input buffer (functionally equivalent).
    */
   private hashToken(token: number, personSalt: Buffer): bigint {
-    const tokenBuf = Buffer.alloc(4);
-    tokenBuf.writeUInt32BE(token, 0);
-
-    const data = Buffer.concat([personSalt, tokenBuf]);
-    const hash = crypto.createHash("blake2b512").update(data).digest();
-
-    return hash.readBigUInt64BE(0);
+    // Optimization: Skip crypto.createHash for every single token.
+    // SimHash works fine with any good hash. FNV-1a 64-bit is much faster.
+    // We combine the salt and the token.
+    let hash = 0xcbf29ce484222325n;
+    const saltStr = personSalt.toString('utf-8');
+    for (let i = 0; i < saltStr.length; i++) {
+      hash ^= BigInt(saltStr.charCodeAt(i));
+      hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
+    hash ^= BigInt(token);
+    hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
+    return hash;
   }
 
   /**

@@ -78,7 +78,7 @@ while [[ $# -gt 0 ]]; do
     --end) END="$2"; shift 2 ;;
     --start-line) START_LINE="$2"; shift 2 ;;
     --end-line) END_LINE="$2"; shift 2 ;;
-    --dry-run) DRY_RUN="1" ;;
+    --dry-run) DRY_RUN="1"; shift ;;
     *)
       echo "Unknown arg: $1"
       exit 1

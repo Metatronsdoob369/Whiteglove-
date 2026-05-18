@@ -9,6 +9,10 @@
     "build": "tsc",
     "start": "node dist/server/main.js",
     "dev": "ts-node server/api.ts",
+    "test": "npm run test:regression",
+    "test:regression": "bash tests/regression/test_pipeline.sh",
+    "secrets:scan": "bash scripts/scan-secrets.sh",
+    "hooks:install": "bash scripts/install-git-hooks.sh",
     "calibrate": "ts-node brain/indexer/calibration.ts",
     "shatter": "ts-node brain/shatter.ts",
     "build-index": "ts-node brain/indexer/build-index.ts",
@@ -33,5 +37,8 @@
     "pkg": "^5.8.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@qdrant/js-client-rest": "^1.18.0"
   }
 }

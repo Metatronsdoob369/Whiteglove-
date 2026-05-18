@@ -3,6 +3,11 @@ dist/
 release/
 exports/
 brain/shards/
+brain/vault/runs/
 .DS_Store
 *.log
+*.jsonl
 .env
+
+# Contains hardcoded auth keys — never commit
+brain/spectral/pod_bootstrap.sh

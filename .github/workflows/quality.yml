@@ -14,13 +14,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Run pipeline regression suite
-        run: bash tests/regression/test_pipeline.sh
+      - name: Run regression suites
+        run: npm test
 
   secret-scan:
     name: Secret Scan

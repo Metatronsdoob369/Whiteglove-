@@ -92,6 +92,43 @@ mkdir -p "$RUN_DIR"
 SHARDS_PATH="$ROOT_DIR/$SHARDS_REL"
 HEATMAP_PATH="$ROOT_DIR/$HEATMAP_REL"
 
+preflight_check() {
+  echo "=== Preflight ==="
+  [[ -d "$SHARDS_PATH" ]] || { echo "ABORT: Missing shards dir: $SHARDS_PATH"; exit 1; }
+  [[ -f "$HEATMAP_PATH" ]] || { echo "ABORT: Missing heatmap file: $HEATMAP_PATH"; exit 1; }
+
+  local shard_count
+  shard_count=$(find "$SHARDS_PATH" -maxdepth 1 -name "*.json" | wc -l | tr -d ' ')
+
+  local heatmap_count
+  heatmap_count=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$HEATMAP_PATH'))
+    # heatmap is a dict keyed by shard id
+    print(len(d))
+except Exception as e:
+    print('ERROR')
+" 2>/dev/null || echo "ERROR")
+
+  echo "Shard files:    $shard_count  ($SHARDS_PATH)"
+  echo "Heatmap keys:   $heatmap_count  ($HEATMAP_PATH)"
+
+  if [[ "$heatmap_count" == "ERROR" ]]; then
+    echo "ABORT: Could not parse heatmap file."
+    exit 1
+  fi
+
+  if [[ "$shard_count" -ne "$heatmap_count" ]]; then
+    echo "ABORT: Shard/heatmap count mismatch — $shard_count shards vs $heatmap_count heatmap keys."
+    echo "       Re-run legal_heatmap.py before compute."
+    exit 1
+  fi
+
+  echo "Preflight OK: $shard_count shards == $heatmap_count heatmap keys"
+  echo ""
+}
+
 compute_stage() {
   echo "=== Compute Stage ==="
   echo "Run ID:     $RUN_ID"
@@ -100,8 +137,7 @@ compute_stage() {
   echo "Ollama:     $OLLAMA_URL"
   echo "Emit:       $POINTS_JSONL"
 
-  [[ -d "$SHARDS_PATH" ]] || { echo "Missing shards dir: $SHARDS_PATH"; exit 1; }
-  [[ -f "$HEATMAP_PATH" ]] || { echo "Missing heatmap file: $HEATMAP_PATH"; exit 1; }
+  preflight_check
 
   local extra=()
   if [[ -n "$END" ]]; then
@@ -255,6 +291,31 @@ except:
     fi
   fi
 
+  # 4. Capture snapshot
+  local snapshot="$RUN_DIR/demo_snapshot.md"
+  cat > "$snapshot" <<SNAP
+# Demo Snapshot — $RUN_ID
+
+Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+## Run
+- Run ID: $RUN_ID
+- Qdrant: $QDRANT_URL
+- Collection: $COLLECTION
+
+## Integrity Check
+- JSONL lines:       $jsonl_lines
+- Checkpoint line:   $checkpoint_line
+- Checkpoint points: $checkpoint_points
+- Qdrant points:     $qdrant_count
+- Pass:              $([[ "$pass" -eq 1 ]] && echo "YES" || echo "NO — see verify output")
+
+## Notes
+<!-- Add corpus description, pod info, run method (legacy-direct / artifact-publisher) here -->
+SNAP
+  echo ""
+  echo "Snapshot saved: $snapshot"
+
   if [[ "$pass" -eq 0 ]]; then
     echo ""
     echo "WARNING: One or more checks failed — see above."
@@ -272,6 +333,7 @@ case "$MODE" in
   all)
     compute_stage
     publish_stage
+    verify_stage
     ;;
   status)
     status_stage

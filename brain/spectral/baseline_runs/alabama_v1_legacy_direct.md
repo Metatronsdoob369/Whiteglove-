@@ -65,7 +65,7 @@
   - `N/A for this run` (no persisted JSONL artifact — legacy direct path)
 - Manual test queries pass (no-match/hit)?
   - `No-match contract covered in CI retrieval contract test`
-  - `Known-hit on legal corpus: <pending confirmation>`
+  - `Known-hit on legal corpus: CONFIRMED — query "DUI blood alcohol limit Alabama" → shard al_32_5A_191_001 (Title 32 Chapter 5A, DUI statutes)`
 - All output counts match expectations?
   - `YES — Pi Qdrant points_count=52,294 == shard count 52,294`
 

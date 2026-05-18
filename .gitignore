@@ -8,6 +8,7 @@ brain/vault/runs/
 *.log
 *.jsonl
 .env
+tests/.tmp/
 
 # Contains hardcoded auth keys — never commit
 brain/spectral/pod_bootstrap.sh

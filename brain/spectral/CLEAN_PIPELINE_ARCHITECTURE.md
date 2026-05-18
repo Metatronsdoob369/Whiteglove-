@@ -37,8 +37,11 @@ Maximize control, reproducibility, and cost safety by separating expensive compu
 - Checkpoint file stores line offset and published count.
 
 3. `pipeline_run.sh` (new)
-- Unified wrapper for clean operations: `compute`, `publish`, `all`, `status`.
+- Unified wrapper for clean operations: `compute`, `publish`, `all`, `status`, `verify`.
 - Standard artifact layout: `brain/vault/runs/<run_id>/`.
+- Built-in preflight shard/heatmap count check before compute.
+- `publish --dry-run` validates JSONL + checkpoint + Qdrant health with no writes.
+- `verify` writes `demo_snapshot.md` with timestamps, git SHA, script hashes, and integrity counts.
 
 ## Recommended Run Pattern
 ### Preferred (single wrapper)
@@ -70,6 +73,23 @@ bash brain/spectral/pipeline_run.sh all \
 4. Status
 ```bash
 bash brain/spectral/pipeline_run.sh status --run-id alabama_2026_05_18
+```
+
+5. Dry-run publish safety check
+```bash
+bash brain/spectral/pipeline_run.sh publish \
+  --run-id alabama_2026_05_18 \
+  --qdrant http://100.113.215.46:6340 \
+  --collection legal-heatmap \
+  --dry-run
+```
+
+6. Verify + snapshot
+```bash
+bash brain/spectral/pipeline_run.sh verify \
+  --run-id alabama_2026_05_18 \
+  --qdrant http://100.113.215.46:6340 \
+  --collection legal-heatmap
 ```
 
 ### Manual (component scripts)
@@ -123,3 +143,9 @@ python3 brain/spectral/legal_qdrant_publish.py \
 2. Treat point JSONL as immutable run artifact.
 3. Store run id in filenames and checkpoint paths.
 4. Rotate credentials/keys from logs immediately.
+
+## Quality Gates
+1. Run regression suite before push: `bash tests/regression/test_pipeline.sh`.
+2. Install git hooks once per clone: `bash scripts/install-git-hooks.sh`.
+3. Secret scan before commit: `.githooks/pre-commit` calls `scripts/scan-secrets.sh`.
+4. CI enforces both regression tests and gitleaks scan via `.github/workflows/quality.yml`.

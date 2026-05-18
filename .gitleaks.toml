@@ -11,3 +11,6 @@ paths = [
     "brain/shards",
     "brain/vault/runs",
 ]
+
+# Note: fingerprint-based suppression of specific false positives
+# belongs in .gitleaksignore, not here. See .gitleaksignore for details.

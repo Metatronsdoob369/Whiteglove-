@@ -10,7 +10,7 @@
 ## Corpus
 
 - **Source:** Alabama ingest (full corpus) from pod shard set `/root/shards/alabama_full`
-- **Final points_count:** `<SET_AT_COMPLETION>`
+- **Final points_count:** `52,294` (`status=green`) — 52,294/52,294 shards, perfect completion
 - **Live points_count (snapshot time):** `41,481` (`status=green`)
 - **Any data pre-processing notes:**
   - Heatmap generated before ingest (`alabama_full_heatmap.json`)
@@ -60,14 +60,14 @@
 ## Verification
 
 - Did all pipeline stages complete (compute, publish, verify)?
-  - `IN_PROGRESS` (legacy direct ingest path)
+  - `COMPLETE` — ingest finished 2026-05-18 17:35 CDT, 52,294/52,294 shards
 - All artifact checksums/SHA256 recorded?
-  - `N/A for this run` (no persisted JSONL artifact)
+  - `N/A for this run` (no persisted JSONL artifact — legacy direct path)
 - Manual test queries pass (no-match/hit)?
   - `No-match contract covered in CI retrieval contract test`
-  - `Known-hit on legal corpus: <pending confirmation>`
+  - `Known-hit on legal corpus: CONFIRMED — query "DUI blood alcohol limit Alabama" → shard al_32_5A_191_001 (Title 32 Chapter 5A, DUI statutes)`
 - All output counts match expectations?
-  - `<SET_AT_COMPLETION>`
+  - `YES — Pi Qdrant points_count=52,294 == shard count 52,294`
 
 ---
 

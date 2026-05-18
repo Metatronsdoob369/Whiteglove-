@@ -145,7 +145,10 @@ python3 brain/spectral/legal_qdrant_publish.py \
 4. Rotate credentials/keys from logs immediately.
 
 ## Quality Gates
-1. Run regression suite before push: `bash tests/regression/test_pipeline.sh`.
-2. Install git hooks once per clone: `bash scripts/install-git-hooks.sh`.
-3. Secret scan before commit: `.githooks/pre-commit` calls `scripts/scan-secrets.sh`.
-4. CI enforces both regression tests and gitleaks scan via `.github/workflows/quality.yml`.
+1. Run regression suites before push: `npm test`.
+2. Retrieval contract check is included: `tests/retrieval/test_retrieval_contract.ts`
+   - `no-match => silenced=true`
+   - `known-hit => returns cited source text`
+3. Install git hooks once per clone: `bash scripts/install-git-hooks.sh`.
+4. Secret scan before commit: `.githooks/pre-commit` calls `scripts/scan-secrets.sh`.
+5. CI enforces both regression tests and gitleaks scan via `.github/workflows/quality.yml`.

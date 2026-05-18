@@ -37,6 +37,7 @@ Options:
   --end <n>              Compute stage end index (exclusive)
   --start-line <n>       Publisher JSONL start line override
   --end-line <n>         Publisher JSONL end line override
+  --dry-run              Publish: parse + validate only, no Qdrant writes
 USAGE
 }
 
@@ -51,6 +52,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 RUN_ID="run_$(date +%Y%m%d_%H%M%S)"
+RUN_START_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 SHARDS_REL="brain/shards/alabama_full"
 HEATMAP_REL="brain/shards/vault/alabama_full_heatmap.json"
 OLLAMA_URL="http://localhost:11434"
@@ -61,6 +63,7 @@ RESUME="0"
 END=""
 START_LINE=""
 END_LINE=""
+DRY_RUN=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -75,6 +78,7 @@ while [[ $# -gt 0 ]]; do
     --end) END="$2"; shift 2 ;;
     --start-line) START_LINE="$2"; shift 2 ;;
     --end-line) END_LINE="$2"; shift 2 ;;
+    --dry-run) DRY_RUN="1" ;;
     *)
       echo "Unknown arg: $1"
       exit 1
@@ -164,8 +168,64 @@ publish_stage() {
   echo "Qdrant:       $QDRANT_URL"
   echo "Collection:   $COLLECTION"
   echo "Checkpoint:   $PUBLISH_CHECKPOINT"
+  [[ -n "$DRY_RUN" ]] && echo "Mode:         DRY RUN (no writes)"
 
   [[ -f "$POINTS_JSONL" ]] || { echo "Missing points file: $POINTS_JSONL"; exit 1; }
+
+  if [[ -n "$DRY_RUN" ]]; then
+    echo ""
+    echo "--- Dry-run checks ---"
+
+    # 1. Parse every line of JSONL
+    local parse_errors
+    parse_errors=$(python3 -c "
+import json, sys
+errors = []
+with open('$POINTS_JSONL') as f:
+    for i, line in enumerate(f, 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+            if 'id' not in d or 'vector' not in d:
+                errors.append(f'line {i}: missing id or vector')
+        except Exception as e:
+            errors.append(f'line {i}: {e}')
+if errors:
+    print('\n'.join(errors[:20]))
+    if len(errors) > 20:
+        print(f'... and {len(errors)-20} more')
+else:
+    print('OK')
+" 2>/dev/null || echo "ERROR: parse failed")
+    echo "JSONL parse:      $parse_errors"
+
+    # 2. Checkpoint state
+    if [[ -f "$PUBLISH_CHECKPOINT" ]]; then
+      echo "Checkpoint:       present — $(cat "$PUBLISH_CHECKPOINT")"
+    else
+      echo "Checkpoint:       none (fresh publish)"
+    fi
+
+    # 3. Qdrant collection health
+    local qdrant_health
+    qdrant_health=$(curl -sf "${QDRANT_URL}/collections/${COLLECTION}" 2>/dev/null | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    pts = d['result']['points_count']
+    status = d['result']['status']
+    print(f'OK — status={status} points={pts}')
+except:
+    print('ERROR')
+" 2>/dev/null || echo "UNREACHABLE")
+    echo "Qdrant health:    $qdrant_health"
+
+    echo ""
+    echo "Dry-run complete. No writes made."
+    return 0
+  fi
 
   local extra=()
   if [[ -n "$START_LINE" ]]; then
@@ -293,14 +353,33 @@ except:
 
   # 4. Capture snapshot
   local snapshot="$RUN_DIR/demo_snapshot.md"
+  local end_ts
+  end_ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  local git_sha
+  git_sha="$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo "unknown")"
+  local script_hash
+  script_hash="$(shasum -a 256 "${BASH_SOURCE[0]}" 2>/dev/null | awk '{print $1}' || echo "unknown")"
+  local ingest_hash
+  ingest_hash="$(shasum -a 256 "$SCRIPT_DIR/legal_temporal_ingest.py" 2>/dev/null | awk '{print $1}' || echo "unknown")"
+  local publish_hash
+  publish_hash="$(shasum -a 256 "$SCRIPT_DIR/legal_qdrant_publish.py" 2>/dev/null | awk '{print $1}' || echo "unknown")"
+
   cat > "$snapshot" <<SNAP
 # Demo Snapshot — $RUN_ID
 
-Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+## Timestamps
+- Started:  $RUN_START_TS
+- Verified: $end_ts
+
+## Provenance
+- Git SHA:              $git_sha
+- pipeline_run.sh:      $script_hash
+- legal_temporal_ingest.py: $ingest_hash
+- legal_qdrant_publish.py:  $publish_hash
 
 ## Run
-- Run ID: $RUN_ID
-- Qdrant: $QDRANT_URL
+- Run ID:    $RUN_ID
+- Qdrant:    $QDRANT_URL
 - Collection: $COLLECTION
 
 ## Integrity Check
@@ -311,7 +390,9 @@ Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 - Pass:              $([[ "$pass" -eq 1 ]] && echo "YES" || echo "NO — see verify output")
 
 ## Notes
-<!-- Add corpus description, pod info, run method (legacy-direct / artifact-publisher) here -->
+<!-- run method: legacy-direct | artifact-publisher -->
+<!-- corpus: alabama_v1 | uscode_v1 | ... -->
+<!-- pod: host, port, instance id, cost/hr -->
 SNAP
   echo ""
   echo "Snapshot saved: $snapshot"

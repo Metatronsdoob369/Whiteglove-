@@ -152,3 +152,10 @@ python3 brain/spectral/legal_qdrant_publish.py \
 3. Install git hooks once per clone: `bash scripts/install-git-hooks.sh`.
 4. Secret scan before commit: `.githooks/pre-commit` calls `scripts/scan-secrets.sh`.
 5. CI enforces both regression tests and gitleaks scan via `.github/workflows/quality.yml`.
+
+## Baseline Records
+1. Runtime snapshots are written under ignored path: `brain/vault/runs/<run_id>/demo_snapshot.md`.
+2. Canonical baseline records must be mirrored in tracked docs:
+   - `brain/spectral/baseline_runs/<run_id>.md`
+3. Use template:
+   - `brain/spectral/baseline_runs/BASELINE_TEMPLATE.md`

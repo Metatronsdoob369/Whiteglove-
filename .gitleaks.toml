@@ -6,8 +6,13 @@ useDefault = true
 # brain/shards/ — 52k+ shard JSON files, no secrets, causes scan to hang.
 # brain/vault/runs/ — runtime JSONL artifacts and snapshots.
 # brain/vault/ itself is NOT excluded — future tracked docs there will be scanned.
+# exports/ — training export JSONL files scraped from public web sources.
+#   Contains shareToken= strings from Law StackExchange share URLs (public, not credentials).
+#   Verified: exports/legal_qa/train.jsonl:19021 and exports/legal/train.jsonl:19021
+#   shareToken=d355a364027527977d0e071df6473842 is a SE post share link, not a secret.
 [allowlist]
 paths = [
     "brain/shards",
     "brain/vault/runs",
+    "exports",
 ]

@@ -1,0 +1,13 @@
+# Extend the default ruleset
+[extend]
+useDefault = true
+
+# Exclude large runtime artifact paths from dir scans.
+# brain/shards/ — 52k+ shard JSON files, no secrets, causes scan to hang.
+# brain/vault/runs/ — runtime JSONL artifacts and snapshots.
+# brain/vault/ itself is NOT excluded — future tracked docs there will be scanned.
+[allowlist]
+paths = [
+    "brain/shards",
+    "brain/vault/runs",
+]

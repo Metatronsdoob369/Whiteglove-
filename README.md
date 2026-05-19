@@ -1,5 +1,7 @@
 # WhiteGlove Agent Husk
 
+[![Quality Gates (Regression + Secret Scan + Docs Release Hygiene)](https://github.com/Metatronsdoob369/Whiteglove-/actions/workflows/quality.yml/badge.svg)](https://github.com/Metatronsdoob369/Whiteglove-/actions/workflows/quality.yml)
+
 **Offline-first, hallucination-resistant intelligence infrastructure.**
 
 The Husk is a retrieval engine built on the principle of silence over fabrication. If the knowledge isn't in the vault, the agent says nothing. Zero network dependency. Zero vector database overhead. Runs entirely from a portable ARCHIVE drive.

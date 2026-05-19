@@ -31,6 +31,24 @@ jobs:
       - name: Run regression suites
         run: npm test
 
+  docs-release-hygiene:
+    name: Docs Release Hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure ripgrep is available
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
+
+      - name: Run docs release checker
+        run: bash scripts/docs_release_check.sh --no-ci
+
   secret-scan:
     name: Secret Scan
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 # WhiteGlove Agent Husk — Launch Package
 
-**Version:** 1.1 (`e73b7ad`) **Date:** 2026-05-19 **Status:** Baseline for buyer / procurement interaction
+**Version:** 1.1 (`e4e66ff`) **Date:** 2026-05-19 **Status:** Baseline for buyer / procurement interaction
 
 This package is the coordinated launch drop for WhiteGlove Agent Husk. Each document is buyer-ready and cross-consistent with the others. Treat this as the canonical baseline. Update files in place; rev the version date at the top.
 
@@ -59,7 +59,7 @@ The following facts appear in multiple documents. If any one is updated, propaga
 
 | Fact | Authoritative location |
 | :---- | :---- |
-| Version string (`e73b7ad`) | `01_datasheet.md` §header |
+| Version string (`e4e66ff`) | `01_datasheet.md` §header |
 | Warm retrieval latency (1.1 s p50 Pi, 180 ms p50 Server) | `01_datasheet.md` §4 |
 | Corpus stable size (100,000 docs / 30 GB) | `01_datasheet.md` §3 |
 | Encryption inventory (AES-256-GCM, TLS 1.3, SHA-256, Ed25519) | `06_threat_model.md` §4 |

@@ -1,6 +1,6 @@
 # WhiteGlove Agent Husk — Compliance & Regulatory Mapping
 
-**Version:** 1.1 (`e73b7ad`) **Date:** 2026-05-19 **Document Owner:** WhiteGlove Compliance **Audience:** CCO, CISO, Privacy Officer, GC, External Auditor
+**Version:** 1.1 (`e4e66ff`) **Date:** 2026-05-19 **Document Owner:** WhiteGlove Compliance **Audience:** CCO, CISO, Privacy Officer, GC, External Auditor
 
 This document maps WhiteGlove Agent Husk's controls to specific regulatory and standards requirements. It is not a legal opinion. It is a feature-to-control mapping intended to support customer assessment, audit response, and regulator inquiry.
 

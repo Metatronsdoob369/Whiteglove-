@@ -1,7 +1,7 @@
 # WhiteGlove for Finance
 
 ## Your research. Your alpha. Your audit trail. On your hardware.
-**Repo SHA:** `e73b7ad` **Last updated:** 2026-05-19
+**Repo SHA:** `e4e66ff` **Last updated:** 2026-05-19
 
 Hedge funds, trading desks, crypto operations, and compliance teams need AI retrieval that will not exfiltrate proprietary research and will not fabricate citations to phantom regulations. WhiteGlove Agent Husk runs entirely on-premise, returns only artifact-backed answers, and produces a snapshot manifest defensible under SEC and FINRA records-retention rules.
 

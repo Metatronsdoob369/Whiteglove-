@@ -1,7 +1,7 @@
 # WhiteGlove Agent Husk — 90-Second Demo Script
 
 **Target runtime:** 90 seconds **Format:** Screen capture with voice-over, hard cuts between beats **Audience:** Technical evaluator \+ decision-maker (CISO, GC, CCO, CMO of regulated firm) **Goal:** Prove faith-less retrieval, prove silence-on-miss, prove auditable snapshot in one continuous flow
-**Repo SHA:** `e73b7ad` **Last updated:** 2026-05-19
+**Repo SHA:** `e4e66ff` **Last updated:** 2026-05-19
 
 **Artifact outputs:** `/docs/demo/90s_proof_demo.md`, `/docs/demo/30s_teaser_demo.md`, `/docs/demo/15s_social_cut.md`
 

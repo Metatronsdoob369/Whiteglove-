@@ -1,0 +1,1631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WhiteGlove Education — Source-Cited Retrieval. Silence on No-Match.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#050608;
+    --bg-deep:#0a0b0d;
+    --ink:#f4f4f3;
+    --ink-2:#a7a9ad;
+    --ink-3:#5b5e64;
+    --ink-4:#2c2f34;
+
+    /* signal palette (matches loaders) */
+    --power:#8effa6;
+    --power-soft:rgba(142,255,166,.14);
+    --power-glow:rgba(142,255,166,.32);
+
+    /* blood copper — the WhiteGlove signature mark */
+    --copper:#c97a4a;
+    --copper-glow:rgba(201,122,74,.55);
+
+    --hero:'Syne', system-ui, sans-serif;
+    --body:'Inter', system-ui, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    background:var(--bg); color:var(--ink);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    scroll-behavior:smooth;
+  }
+  body{ overflow-x:hidden; }
+
+  /* living-grid canvas sits behind everything */
+  #living-bg{ position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+  /* grain + vignette overlay */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:
+      radial-gradient(120% 80% at 50% 50%, transparent 50%, rgba(0,0,0,.55) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1   0 0 0 0 1   0 0 0 0 1   0 0 0 .04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode:screen; opacity:.55;
+  }
+
+  .stage{
+    position:relative; z-index:2;
+    width:100vw; min-height:100dvh;
+    display:grid; grid-template-rows: auto 1fr auto;
+    padding: clamp(14px, 2.4dvh, 32px) clamp(24px, 4vw, 56px);
+  }
+
+  /* HUD */
+  .hud, .foot{
+    font-family:var(--mono); font-size:11px;
+    letter-spacing:.32em; text-transform:uppercase; color:var(--ink-3);
+  }
+  .hud{ display:flex; justify-content:space-between; align-items:center; }
+  .hud .left, .hud .right{ display:flex; gap:18px; align-items:center; }
+  .hud .dot{
+    width:6px; height:6px; border-radius:50%;
+    background:var(--ink-4); transition:background .8s, box-shadow .8s;
+  }
+  .powered .hud .dot{ background:var(--power); box-shadow:0 0 10px var(--power-glow); }
+  .powered .hud .state{ color:var(--power); }
+  .hud .plus{ color:var(--copper); text-shadow:0 0 6px var(--copper-glow); }
+
+  /* center stack */
+  .center{
+    position:relative; display:grid; grid-template-rows: auto auto auto;
+    align-content:center; justify-items:center;
+    gap: clamp(8px, 1.6dvh, 22px);
+    text-align:center; min-height:0;
+  }
+
+  /* SYSTEMS — silver gradient on bottom */
+  .systems-wrap{ position:relative; padding: 8px 28px 4px; }
+  .systems-wrap[data-ticks="off"]{ padding:0; }
+  .systems-wrap[data-ticks="on"]::before,
+  .systems-wrap[data-ticks="on"]::after{
+    content:""; position:absolute; width:14px; height:14px;
+    border:1px solid rgba(255,255,255,.18);
+  }
+  .systems-wrap[data-ticks="on"]::before{ top:0; left:0; border-right:0; border-bottom:0; }
+  .systems-wrap[data-ticks="on"]::after { bottom:0; right:0; border-left:0; border-top:0; }
+
+  .systems{
+    font-family:var(--hero); font-weight:700;
+    font-size: clamp(40px, min(7.2vw, 11dvh), 96px);
+    line-height:.9; letter-spacing:-.035em;
+    text-transform:uppercase;
+    /* silver brushed gradient: bright top, dimming to slate at the baseline */
+    background: linear-gradient(180deg,
+      #ffffff 0%,
+      #f1f1ee 38%,
+      #c2c4c7 64%,
+      #888a8e 86%,
+      #6a6c70 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+    filter: drop-shadow(0 1px 0 rgba(255,255,255,.05))
+            drop-shadow(0 24px 60px rgba(0,0,0,.55));
+  }
+
+  /* ─── Realistic chip ─── */
+  .node-wrap{
+    position:relative;
+    width:min(620px, 76vw);
+    aspect-ratio: 16/9;
+    max-height:42dvh;
+    display:grid; place-items:center;
+  }
+  .node-aura{
+    position:absolute; inset:-12% -16%;
+    background: radial-gradient(closest-side, var(--power-soft), transparent 70%);
+    opacity:0; transition:opacity 2s; filter:blur(8px);
+  }
+  .powered .node-aura{ opacity:1; animation: breathe 4.6s ease-in-out infinite; }
+  @keyframes breathe{
+    0%,100%{ transform:scale(.96); opacity:.55; }
+    50%{ transform:scale(1.04); opacity:1; }
+  }
+
+  .node-svg{ width:100%; height:100%; display:block; overflow:visible; }
+
+  /* trace pulses */
+  .trace{ stroke:rgba(255,255,255,.08); stroke-width:1.1; fill:none; }
+  .trace-live{
+    stroke:var(--power); stroke-width:1.4; fill:none;
+    stroke-dasharray: 8 220;
+    opacity:0;
+    filter: drop-shadow(0 0 4px var(--power-glow));
+    transition: opacity 1.4s ease;
+  }
+  .powered .trace-live{ opacity:.85; animation: flow 3.2s linear infinite; }
+  .powered .trace-live.t2{ animation-duration:4s; animation-delay:.4s; }
+  .powered .trace-live.t3{ animation-duration:3.6s; animation-delay:.8s; }
+  .powered .trace-live.t4{ animation-duration:4.4s; animation-delay:1.2s; }
+  @keyframes flow{ to { stroke-dashoffset:-228; } }
+
+  .die-pulse{
+    opacity:0; transition: opacity 1.4s ease;
+    transform-origin: 400px 210px;
+  }
+  .powered .die-pulse{
+    opacity:.7;
+    animation: corePulse 3.4s ease-in-out infinite;
+  }
+  @keyframes corePulse{
+    0%,100%{ opacity:.45; }
+    50%{ opacity:.9; }
+  }
+
+  /* the copper "+" — blood copper, no signal color */
+  /* delayed by ~0.5s vs main power-on so it lands as a separate beat */
+  .chip-mark{
+    fill: #4a3328;
+    transition: fill 1.4s ease .5s, filter 1.4s ease .5s;
+  }
+  .powered .chip-mark{
+    fill: var(--copper);
+    filter: drop-shadow(0 0 8px var(--copper-glow));
+  }
+  /* subline copper "+" and full-stop should ride the same delay */
+  .subline .plus, .subline .full-stop{
+    transition: text-shadow 1.4s ease .5s, color 1.4s ease .5s;
+  }
+
+  .chip-label{
+    font-family:var(--mono); font-size:6.5px;
+    letter-spacing:.45em; fill: var(--ink-3);
+    transition: fill 1.4s ease;
+  }
+  .powered .chip-label{ fill: var(--ink-2); }
+
+  .sine{
+    stroke:var(--power); stroke-width:1.2; fill:none; stroke-linecap:round;
+    opacity:0; filter: drop-shadow(0 0 6px var(--power-glow));
+  }
+  .powered .sine{ animation: sineExhale 7s ease-in-out infinite; }
+  .powered .sine.s2{ animation-delay:3s; animation-duration:6s; }
+  @keyframes sineExhale{
+    0%   { opacity:0; }
+    20%  { opacity:.7; }
+    60%  { opacity:.4; }
+    100% { opacity:0; }
+  }
+
+  /* subline */
+  .subline{
+    font-family:var(--hero); font-weight:300;
+    font-size: clamp(22px, min(4vw, 6.2dvh), 50px);
+    line-height:1.02; letter-spacing:-.02em;
+    color:var(--ink-2);
+    opacity:0; transform: translateY(14px);
+    transition: opacity 1.6s cubic-bezier(.2,.7,.2,1) .4s,
+                transform 1.6s cubic-bezier(.2,.7,.2,1) .4s;
+  }
+  .powered .subline{ opacity:1; transform:translateY(0); }
+  .subline .accent{
+    font-weight:600; font-style:italic;
+    background: linear-gradient(180deg, #ffffff 0%, #b8babe 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+  }
+  .subline .plus{
+    color:var(--copper); font-weight:700; font-style:normal; margin:0 .04em;
+    -webkit-text-fill-color: var(--copper);
+    text-shadow: 0 0 14px var(--copper-glow);
+  }
+  .subline .full-stop{ color:var(--copper); -webkit-text-fill-color: var(--copper); }
+
+  /* foot */
+  .foot{ display:flex; justify-content:space-between; align-items:end; }
+  .foot .meter{ display:flex; align-items:center; gap:10px; }
+  .foot .meter .bars{ display:inline-grid; grid-template-columns:repeat(12, 4px); gap:3px; }
+  .foot .meter .bars span{
+    height:10px; background:var(--ink-4); border-radius:1px;
+    transition:background .6s, box-shadow .6s;
+  }
+  .powered .foot .meter .bars span{ background:var(--power); box-shadow:0 0 6px var(--power-glow); }
+  .powered .foot .meter .bars span:nth-child(n+9){ background:var(--ink-4); box-shadow:none; }
+  .foot .plus{ color:var(--copper); }
+
+  /* power button */
+  .power-btn{
+    position:fixed; right:20px; top:20px; z-index:20;
+    width:36px; height:36px; border-radius:50%;
+    border:1px solid rgba(255,255,255,.12);
+    background:#0c0d10; color:var(--ink-2);
+    cursor:pointer; display:grid; place-items:center;
+    transition:all .4s ease;
+  }
+  .power-btn:hover{ color:var(--ink); border-color:rgba(255,255,255,.24); }
+  .powered .power-btn{
+    color:var(--power); border-color:var(--power);
+    box-shadow:0 0 16px var(--power-glow), inset 0 0 8px var(--power-soft);
+  }
+
+  /* ─── HEARTBEAT / ECG sweep across the foot row ─── */
+  /* one-time pass: a swift reflection that doubles as an ECG read */
+  .foot{ position:relative; overflow:hidden; }
+  .foot::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,0) 20%,
+        rgba(142,255,166,.0) 38%,
+        rgba(142,255,166,.55) 49%,
+        rgba(255,255,255,.85) 50%,
+        rgba(142,255,166,.55) 51%,
+        rgba(142,255,166,0) 62%,
+        transparent 100%);
+    transform: translateX(-110%);
+    mix-blend-mode: screen;
+    opacity: 0;
+  }
+  .foot.sweep::after{
+    animation: ecg-sweep 1.6s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes ecg-sweep{
+    0%   { transform: translateX(-110%); opacity:0; }
+    8%   { opacity:1; }
+    /* tiny QRS hiccup near mid-sweep */
+    44%  { transform: translateX(40%) scaleY(1); opacity:1; }
+    50%  { transform: translateX(50%) scaleY(2.2); opacity:1; }
+    56%  { transform: translateX(60%) scaleY(1); opacity:1; }
+    92%  { opacity:.6; }
+    100% { transform: translateX(110%); opacity:0; }
+  }
+
+  /* ECG trace line that draws across foot during the sweep */
+  .ecg-line{
+    position:absolute; left:0; right:0; bottom:6px; height:24px;
+    pointer-events:none; opacity:0;
+  }
+  .foot.sweep .ecg-line{ animation: ecg-line-show 1.6s ease forwards; }
+  @keyframes ecg-line-show{
+    0%,100%{ opacity:0; }
+    20%,80%{ opacity:.85; }
+  }
+  .ecg-line path{
+    stroke: var(--power); stroke-width:1.2; fill:none;
+    stroke-linecap:round; stroke-linejoin:round;
+    filter: drop-shadow(0 0 6px var(--power-glow));
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+  }
+  .foot.sweep .ecg-line path{
+    animation: ecg-draw 1.6s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes ecg-draw{
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* scroll cue under hero — "DESCEND" */
+  .scroll-cue{
+    position:absolute; left:50%; bottom: clamp(8px, 2dvh, 22px);
+    transform: translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:10px; letter-spacing:.45em;
+    color:var(--ink-3); text-transform:uppercase;
+    opacity:0; transition: opacity 1s ease 1.6s;
+    pointer-events:none;
+  }
+  .powered .scroll-cue{ opacity:.85; pointer-events:auto; cursor:pointer; }
+  .scroll-cue:hover{ color:var(--ink-2); }
+  .scroll-cue .tick{
+    width:1px; height:22px;
+    background:linear-gradient(180deg, transparent, var(--ink-3));
+    animation: tickPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes tickPulse{
+    0%,100%{ opacity:.4; transform:scaleY(.7); }
+    50%{ opacity:1; transform:scaleY(1.1); }
+  }
+
+  /* ───────────────────────────────────────────────────────────────────
+     PAYLOAD SECTION — the 5 nodes
+     ─────────────────────────────────────────────────────────────────── */
+  .payload{
+    position:relative; z-index:2;
+    width:100vw; min-height:100dvh;
+    padding: clamp(48px, 6dvh, 88px) clamp(24px, 4vw, 56px) clamp(72px, 8dvh, 120px);
+    display:flex; flex-direction:column;
+  }
+
+  .payload-hud{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:11px;
+    letter-spacing:.32em; text-transform:uppercase; color:var(--ink-3);
+    padding-bottom: clamp(20px, 3dvh, 40px);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .payload-hud .left, .payload-hud .right{ display:flex; gap:18px; align-items:center; }
+  .payload-hud .plus{ color:var(--copper); text-shadow:0 0 6px var(--copper-glow); }
+  .payload-hud .seq-state{ color:var(--ink-3); transition:color .6s; }
+  .payload.armed .payload-hud .seq-state{ color:var(--power); }
+
+  .payload-title-row{
+    display:grid; grid-template-columns: 1fr auto 1fr;
+    align-items:center; gap: clamp(20px, 3vw, 40px);
+    padding: clamp(28px, 4dvh, 56px) 0 clamp(20px, 3dvh, 36px);
+  }
+  .payload-title-row .rule{ height:1px; background: linear-gradient(90deg, transparent, var(--ink-4), transparent); }
+  .payload-title{
+    font-family:var(--hero); font-weight:700;
+    font-size: clamp(22px, 3vw, 38px); letter-spacing:-.02em;
+    text-transform:uppercase; color:var(--ink);
+    text-align:center; white-space:nowrap;
+  }
+  .payload-title .accent{ color:var(--copper); text-shadow:0 0 12px var(--copper-glow); }
+  .payload-sub{
+    font-family:var(--mono); font-size:11px; letter-spacing:.32em;
+    color:var(--ink-3); text-transform:uppercase;
+    text-align:center;
+    padding-bottom: clamp(28px, 4dvh, 56px);
+  }
+
+  /* graph stage */
+  .graph-stage{
+    position:relative;
+    flex:1; min-height: clamp(420px, 60dvh, 640px);
+    display:grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: 1fr;
+    align-items:center;
+    gap: clamp(12px, 2vw, 28px);
+    padding: clamp(24px, 4dvh, 48px) clamp(8px, 2vw, 24px);
+  }
+  /* SVG that draws the n8n-style traces between nodes */
+  .graph-wires{
+    position:absolute; inset:0; width:100%; height:100%;
+    pointer-events:none; z-index:0;
+  }
+
+  /* node positions — column index in the grid */
+  .node-slot{ position:relative; display:flex; align-items:center; justify-content:center; }
+  .node-slot.col-1{ grid-column:1; }
+  .node-slot.col-2{ grid-column:2; }
+  .node-slot.col-3{ grid-column:3; display:grid; grid-template-rows: 1fr 1fr; gap: clamp(20px, 3dvh, 40px); }
+  .node-slot.col-4{ grid-column:4; }
+  .node-slot.col-5{ grid-column:5; }
+
+  /* ── chip-node ── */
+  .chip-node{
+    position:relative;
+    width: clamp(120px, 14vw, 168px);
+    aspect-ratio: 1/1;
+    cursor:pointer;
+  }
+  .chip-node .body{
+    position:absolute; inset:0; border-radius:14px;
+    background:
+      linear-gradient(180deg, #1d1f23 0%, #121419 50%, #0a0c10 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.08),
+      inset 0 -1px 2px rgba(0,0,0,.6),
+      0 14px 30px -10px rgba(0,0,0,.7),
+      0 0 0 1px rgba(255,255,255,.04);
+    transition: box-shadow .8s ease, transform .4s ease;
+  }
+  .chip-node .body::before{
+    /* index notch */
+    content:""; position:absolute; top:10px; left:10px;
+    width:6px; height:6px; border-radius:50%;
+    background:#06080b; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  .chip-node .body::after{
+    /* lacquer sheen */
+    content:""; position:absolute; inset:0; border-radius:14px;
+    background: linear-gradient(160deg, rgba(255,255,255,.08), transparent 40%);
+    pointer-events:none;
+  }
+  /* mint indicator LED on the chip rim */
+  .chip-node .led{
+    position:absolute; top:10px; right:12px;
+    width:5px; height:5px; border-radius:50%;
+    background:#1a1d22; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+    transition: background .8s, box-shadow .8s;
+  }
+  .chip-node.lit .led{
+    background: var(--power);
+    box-shadow: 0 0 10px var(--power-glow), inset 0 0 0 1px rgba(255,255,255,.2);
+  }
+  /* pins on left & right */
+  .chip-node .pins{
+    position:absolute; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:7px;
+  }
+  .chip-node .pins.left{ left:-7px; }
+  .chip-node .pins.right{ right:-7px; }
+  .chip-node .pins span{
+    width:8px; height:6px; border-radius:1.5px;
+    background: linear-gradient(180deg, #7c8088 0%, #5a5d63 50%, #2a2c30 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.4);
+  }
+
+  /* the icon — thin-line cutout that emits light from inside on activation */
+  .chip-node .glyph{
+    position:absolute; inset:0; display:grid; place-items:center;
+    color: rgba(255,255,255,.18);
+    transition: color .9s ease, filter .9s ease;
+  }
+  .chip-node .glyph svg{
+    width:46%; height:46%;
+    stroke-width:1.6;
+    fill:none; stroke:currentColor;
+    stroke-linecap:round; stroke-linejoin:round;
+    overflow: visible;
+  }
+  .chip-node .glyph svg *{
+    vector-effect: non-scaling-stroke;
+    fill: none;
+  }
+  .chip-node.lit .glyph{
+    color: var(--power);
+    filter: drop-shadow(0 0 4px var(--power-glow));
+  }
+
+  /* node tag at bottom */
+  .chip-node .tag{
+    position:absolute; left:50%; bottom:-26px; transform:translateX(-50%);
+    font-family:var(--mono); font-size:10px; letter-spacing:.32em;
+    color:var(--ink-3); text-transform:uppercase; white-space:nowrap;
+    transition: color .6s;
+  }
+  .chip-node.lit .tag{ color: var(--ink-2); }
+  .chip-node .tag .num{ color:var(--copper); margin-right:6px; }
+
+  /* hover spec card — switch-blade flip from top-left of the node */
+  .spec-card{
+    position:absolute;
+    top:-12px; left:-12px;
+    width: clamp(220px, 22vw, 280px);
+    transform-origin: top left;
+    transform: translate(-6px,-6px) scale(.96);
+    opacity:0;
+    pointer-events:none;
+    transition: transform .45s cubic-bezier(.2,.8,.2,1.05), opacity .35s ease;
+    z-index: 30;
+  }
+  /* invisible bridge under the card so cursor can travel from chip to card without losing hover */
+  .spec-card::before{
+    content:""; position:absolute;
+    left:0; right:0; bottom:-18px; height:22px;
+  }
+  .chip-node:hover .spec-card,
+  .chip-node:focus-visible .spec-card,
+  .spec-card:hover,
+  .spec-card:focus-within{
+    transform: translate(-12px,-100%) scale(1);
+    opacity:1;
+    pointer-events:auto;
+  }
+  /* click affordance + press effect */
+  .spec-card .card-body{
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .25s ease, border-color .25s ease;
+  }
+  .spec-card .card-body:hover{
+    border-color: rgba(255,255,255,.16);
+    box-shadow:
+      0 28px 70px -20px rgba(0,0,0,.95),
+      inset 0 1px 0 rgba(255,255,255,.06),
+      0 0 0 1px var(--power-soft);
+  }
+  .spec-card .card-body:active{
+    transform: translateY(1px) scale(.992);
+    box-shadow:
+      0 14px 30px -16px rgba(0,0,0,.95),
+      inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  /* tiny "OPEN" cue in the card head, slides in on hover */
+  .spec-card .card-head .open-cue{
+    color: var(--power);
+    opacity: 0; transform: translateX(-4px);
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .spec-card .card-body:hover .open-cue{
+    opacity:.9; transform: translateX(0);
+  }
+  /* click ripple */
+  .spec-card .card-body::after{
+    /* override existing ::after corner tick to keep it; we add a separate ripple element */
+  }
+  .click-ripple{
+    position:absolute; left:50%; top:50%;
+    width:8px; height:8px; border-radius:50%;
+    background: var(--power);
+    transform: translate(-50%,-50%) scale(0);
+    opacity:.6;
+    pointer-events:none;
+    animation: ripple .55s ease-out forwards;
+    mix-blend-mode: screen;
+  }
+  @keyframes ripple{
+    to { transform: translate(-50%,-50%) scale(40); opacity: 0; }
+  }
+  .spec-card .card-body{
+    position:relative;
+    background: linear-gradient(180deg, #0e1014 0%, #0a0c10 100%);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 4px;
+    padding: 14px 16px 12px;
+    box-shadow:
+      0 24px 60px -20px rgba(0,0,0,.9),
+      inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  /* corner ticks on card */
+  .spec-card .card-body::before,
+  .spec-card .card-body::after{
+    content:""; position:absolute; width:10px; height:10px;
+    border:1px solid rgba(255,255,255,.18);
+  }
+  .spec-card .card-body::before{ top:4px; left:4px; border-right:0; border-bottom:0; }
+  .spec-card .card-body::after { bottom:4px; right:4px; border-left:0; border-top:0; }
+  .spec-card .card-head{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:9px; letter-spacing:.4em;
+    color:var(--ink-3); text-transform:uppercase;
+    padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.06);
+  }
+  .spec-card .card-head .id{ color:var(--copper); }
+  .spec-card .card-title{
+    font-family:var(--hero); font-weight:600;
+    font-size: 18px; letter-spacing:-.01em;
+    color:var(--ink); margin: 10px 0 6px;
+    text-transform:uppercase;
+  }
+  .spec-card .card-brief{
+    font-family:var(--body); font-size:12px; line-height:1.45;
+    color:var(--ink-2); margin: 0 0 12px;
+  }
+  .spec-card .card-tags{
+    display:flex; flex-wrap:wrap; gap:6px;
+    padding-top:10px; border-top:1px dashed rgba(255,255,255,.08);
+  }
+  .spec-card .card-tags span{
+    font-family:var(--mono); font-size:9px; letter-spacing:.2em;
+    color:var(--ink-3); text-transform:uppercase;
+    padding:3px 7px;
+    background: rgba(255,255,255,.025);
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:2px;
+  }
+  /* tiny loader bar at bottom of card */
+  .spec-card .card-load{
+    margin-top:10px; height:2px;
+    background: linear-gradient(90deg, transparent, var(--power) 50%, transparent);
+    background-size: 200% 100%;
+    animation: cardLoad 2.4s linear infinite;
+    opacity:.6;
+  }
+  @keyframes cardLoad{
+    0%{ background-position: 200% 0; }
+    100%{ background-position: -200% 0; }
+  }
+
+  /* sub-tag offset for the 3a / 3b nodes (smaller, intelligence pair) */
+  .col-3 .chip-node{ width: clamp(100px, 11vw, 132px); }
+  .col-3 .tag{ font-size:9px; }
+
+  /* ARM switch ─────────────────────── */
+  .arm-row{
+    display:flex; justify-content:center; align-items:center;
+    padding: clamp(40px, 5dvh, 64px) 0 clamp(20px, 3dvh, 36px);
+    gap: 24px;
+  }
+  .arm-btn{
+    --active: 0;
+    position:relative;
+    display:inline-flex; align-items:center; gap:14px;
+    padding: 16px 36px;
+    background:transparent; border:none; cursor:pointer;
+    border-radius:9999px;
+    transform-origin:center;
+    transform: scale(calc(1 + (var(--active) * 0.05)));
+    transition: transform .3s ease;
+    font-family:var(--mono); font-size:13px; letter-spacing:.5em;
+    text-transform:uppercase; color:var(--ink);
+  }
+  .arm-btn::before{
+    content:""; position:absolute; inset:0; border-radius:9999px;
+    background-color: #0c0d10;
+    box-shadow:
+      inset 0 0.5px rgba(255,255,255,.18),
+      inset 0 -1px 2px rgba(0,0,0,.6),
+      0 6px 18px -6px rgba(0,0,0,.7),
+      0 0 0 calc(var(--active) * 6px) var(--copper-glow);
+    transition: box-shadow .4s ease;
+    z-index:0;
+  }
+  .arm-btn::after{
+    content:""; position:absolute; inset:0; border-radius:9999px;
+    background:
+      radial-gradient(at 40% 100%, rgba(201,122,74,.55) 0px, transparent 60%),
+      radial-gradient(at 100% 0%,  rgba(201,122,74,.35) 0px, transparent 50%),
+      linear-gradient(180deg, rgba(201,122,74,.45), rgba(74,51,40,.6));
+    opacity: var(--active);
+    transition: opacity .4s ease;
+    border-radius:9999px;
+    z-index:1;
+  }
+  .arm-btn:hover{ --active: 1; }
+  .arm-btn.armed{ --active: 1; cursor:default; }
+  .arm-btn .arm-text, .arm-btn .arm-spark, .arm-btn .arm-dots{
+    position:relative; z-index:3;
+  }
+  .arm-btn .arm-text{
+    background-image: linear-gradient(90deg,
+      rgba(255,255,255,1) 0%,
+      rgba(255,255,255, calc(0.55 + var(--active) * 0.45)) 120%);
+    -webkit-background-clip: text; background-clip:text;
+    color: transparent;
+    text-shadow: 0 0 calc(var(--active) * 12px) var(--copper-glow);
+  }
+  .arm-btn.armed .arm-text{
+    color: transparent;
+    background-image: linear-gradient(90deg,
+      var(--copper) 0%, #f3c8a2 100%);
+    -webkit-background-clip:text; background-clip:text;
+  }
+  .arm-btn .arm-spark{
+    width: 22px; height:22px;
+    color: rgba(255,255,255,.85);
+    filter: drop-shadow(0 0 6px var(--copper-glow));
+  }
+  .arm-btn .arm-spark path{
+    fill: currentColor; stroke: currentColor;
+    transform-origin:center;
+  }
+  .arm-btn:hover .arm-spark path,
+  .arm-btn.armed .arm-spark path{ animation: armSpark 1.5s linear .2s infinite; }
+  .arm-btn .arm-spark path:nth-child(1){ --sp:1.25; }
+  .arm-btn .arm-spark path:nth-child(2){ --sp:1.18; }
+  .arm-btn .arm-spark path:nth-child(3){ --sp:1.22; }
+  @keyframes armSpark{
+    0%,34%,71%,100%{ transform:scale(1); }
+    17%{ transform:scale(var(--sp,1.2)); }
+    49%{ transform:scale(var(--sp,1.2)); }
+    83%{ transform:scale(var(--sp,1.2)); }
+  }
+  /* rotating border dots when hover/armed */
+  .arm-btn .arm-dots{
+    position:absolute; inset:-2px; border-radius:9999px;
+    overflow:hidden; z-index:0; opacity: var(--active);
+    transition: opacity .4s ease;
+  }
+  .arm-btn .arm-dots::before{
+    content:""; position:absolute; top:30%; left:50%;
+    transform-origin:left;
+    width:100%; height:2.4rem;
+    background: rgba(255,255,255,.85);
+    mask: linear-gradient(transparent 0%, white 120%);
+    animation: armRotate 2s linear infinite;
+  }
+  @keyframes armRotate{
+    from{ transform: translate(-50%,-50%) rotate(0deg); }
+    to  { transform: translate(-50%,-50%) rotate(360deg); }
+  }
+  .arm-status{
+    font-family:var(--mono); font-size:11px; letter-spacing:.32em;
+    text-transform:uppercase; color:var(--ink-3);
+  }
+  .payload.armed .arm-status{ color:var(--power); }
+
+  /* graph wire styling */
+  .wire{ stroke: rgba(255,255,255,.08); stroke-width:1; fill:none; }
+  .wire-live{
+    stroke: var(--power); stroke-width:1.4; fill:none;
+    stroke-dasharray: 10 240;
+    opacity:0;
+    filter: drop-shadow(0 0 4px var(--power-glow));
+    transition: opacity 1s ease;
+  }
+  .payload.armed .wire-live{ opacity:.85; animation: wireFlow 3.4s linear infinite; }
+  .payload.armed .wire-live.w2{ animation-duration:3.8s; animation-delay:.6s; }
+  .payload.armed .wire-live.w3a{ animation-duration:3.4s; animation-delay:1.2s; }
+  .payload.armed .wire-live.w3b{ animation-duration:3.6s; animation-delay:1.4s; }
+  .payload.armed .wire-live.w4a{ animation-duration:3.4s; animation-delay:2.0s; }
+  .payload.armed .wire-live.w4b{ animation-duration:3.6s; animation-delay:2.2s; }
+  .payload.armed .wire-live.w5{ animation-duration:3.6s; animation-delay:2.8s; }
+  @keyframes wireFlow{ to { stroke-dashoffset:-250; } }
+
+  /* nodes light up sequentially when armed; uses .lit class added by JS */
+</style>
+
+<style id="lacquered-white-overrides">
+  :root{
+    --bg:#f4f6f8;
+    --bg-deep:#eef1f4;
+    --ink:#121419;
+    --ink-2:#3f4650;
+    --ink-3:#6f7782;
+    --ink-4:#c6ced8;
+    --power:#0fa07b;
+    --power-soft:rgba(15,160,123,.14);
+    --power-glow:rgba(15,160,123,.34);
+    --copper:#b25f36;
+    --copper-glow:rgba(178,95,54,.35);
+  }
+
+  html, body{
+    background: radial-gradient(140% 90% at 50% 0%, #ffffff 0%, #f4f6f8 45%, #e9edf2 100%);
+    color:var(--ink);
+  }
+
+  body::before{
+    background:
+      radial-gradient(120% 80% at 50% 50%, transparent 45%, rgba(255,255,255,.35) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode:multiply;
+    opacity:.28;
+  }
+
+  .systems{
+    background: linear-gradient(180deg,#ffffff 0%,#f4f7fb 44%,#d4dbe4 78%,#a0acbb 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+    filter: drop-shadow(0 1px 0 rgba(255,255,255,.92)) drop-shadow(0 20px 36px rgba(95,110,130,.25));
+  }
+
+  .hud,.foot,.payload-hud,.payload-sub,.chip-node .tag,.chip-label{ color:var(--ink-3) !important; }
+
+  .node-wrap{
+    filter: drop-shadow(0 24px 36px rgba(102,118,140,.22));
+  }
+
+  .chip-node .body{
+    background: linear-gradient(180deg,#fbfdff 0%, #f2f5f9 48%, #e6ebf2 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.98),
+      inset 0 -1px 2px rgba(157,172,191,.35),
+      0 14px 24px -12px rgba(91,110,132,.42),
+      0 0 0 1px rgba(174,187,204,.72);
+  }
+
+  .chip-node .body::after{
+    background: linear-gradient(165deg, rgba(255,255,255,.84), rgba(255,255,255,0) 42%);
+  }
+
+  .chip-node .led{
+    background:#d7dfe8;
+    box-shadow: inset 0 0 0 1px rgba(133,148,166,.35);
+  }
+
+  .chip-node .pins span{
+    background: linear-gradient(180deg,#e8eef5 0%, #cfd8e3 52%, #b0bccb 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.95);
+  }
+
+  .chip-node .glyph{ color: rgba(56,79,110,.36); }
+
+  .spec-card .card-body{
+    background: linear-gradient(180deg,#ffffff 0%, #f6f9fc 100%);
+    border:1px solid rgba(172,186,204,.72);
+    box-shadow: 0 20px 42px -20px rgba(80,102,128,.45);
+  }
+
+  .spec-card .card-title{ color:#131a21 !important; }
+  .spec-card .card-brief{ color:#4b5868 !important; }
+  .spec-card .card-head, .spec-card .card-tags span{ color:#647286 !important; border-color:#d5ddea !important; }
+
+  .payload{
+    background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(236,241,247,.72));
+    border-top:1px solid rgba(174,188,206,.4);
+  }
+
+  .payload .rule{ background: linear-gradient(90deg, transparent, #c5cfdd, transparent); }
+
+  .topology-canvas-wrap, .graph-stage{
+    background: transparent;
+  }
+
+  .wire{ stroke: rgba(120,140,164,.35) !important; }
+  .trace{ stroke: rgba(120,140,164,.35) !important; }
+
+  .foot .meter .bars span{
+    background:#c6d0db !important;
+    box-shadow:none !important;
+  }
+
+  .powered .foot .meter .bars span{
+    background:var(--power) !important;
+    box-shadow:0 0 4px var(--power-glow) !important;
+  }
+
+  .power-btn{
+    background: #ffffff;
+    border:1px solid rgba(154,172,194,.65);
+    color:#4f5f73;
+    box-shadow: 0 8px 22px rgba(122,138,159,.22);
+  }
+
+  .powered .power-btn{
+    color:var(--power);
+    border-color:var(--power);
+    box-shadow:0 0 10px var(--power-glow), 0 8px 20px rgba(111,133,158,.22);
+  }
+</style>
+
+</head>
+<body>
+
+<canvas id="living-bg"></canvas>
+
+<main class="stage" id="stage">
+  <header class="hud">
+    <div class="left">
+      <span>WHITEGLOVE<span class="plus">+</span></span>
+      <span style="color:var(--ink-4)">/</span>
+      <span>01 · CORE</span>
+    </div>
+    <div class="right">
+      <span class="state">DORMANT</span>
+      <span class="dot" aria-hidden="true"></span>
+    </div>
+  </header>
+
+  <section class="center">
+    <div class="systems-wrap" data-ticks="on">
+      <h1 class="systems">SYSTEMS</h1>
+    </div>
+
+    <div class="node-wrap" aria-hidden="true">
+      <div class="node-aura"></div>
+      <svg class="node-svg" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <!-- chip body: dark phenolic w/ subtle bevel -->
+          <linearGradient id="chipBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stop-color="#1d1f23"/>
+            <stop offset="50%" stop-color="#121419"/>
+            <stop offset="100%" stop-color="#0a0c10"/>
+          </linearGradient>
+          <linearGradient id="chipBevel" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stop-color="rgba(255,255,255,.18)"/>
+            <stop offset="6%"  stop-color="rgba(255,255,255,.06)"/>
+            <stop offset="92%" stop-color="rgba(0,0,0,.5)"/>
+            <stop offset="100%" stop-color="rgba(0,0,0,.7)"/>
+          </linearGradient>
+
+          <!-- silicon die: deep blue-black with iridescent sheen -->
+          <linearGradient id="die" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%"  stop-color="#0d1320"/>
+            <stop offset="40%" stop-color="#101a2c"/>
+            <stop offset="70%" stop-color="#0a0f1c"/>
+            <stop offset="100%" stop-color="#0d1320"/>
+          </linearGradient>
+          <linearGradient id="dieSheen" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%"   stop-color="rgba(120,140,180,.18)"/>
+            <stop offset="45%"  stop-color="rgba(120,140,180,0)"/>
+            <stop offset="55%"  stop-color="rgba(180,150,120,0)"/>
+            <stop offset="100%" stop-color="rgba(180,150,120,.10)"/>
+          </linearGradient>
+
+          <!-- pin: brushed nickel gradient -->
+          <linearGradient id="pin" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"  stop-color="#2a2c30"/>
+            <stop offset="40%" stop-color="#5a5d63"/>
+            <stop offset="55%" stop-color="#7c8088"/>
+            <stop offset="70%" stop-color="#5a5d63"/>
+            <stop offset="100%" stop-color="#1f2125"/>
+          </linearGradient>
+          <linearGradient id="pinTop" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stop-color="rgba(255,255,255,.4)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+          </linearGradient>
+
+          <!-- copper pad ring under the + -->
+          <radialGradient id="copperPad" cx=".5" cy=".5" r=".5">
+            <stop offset="0%"  stop-color="#3a2418"/>
+            <stop offset="60%" stop-color="#1f130c"/>
+            <stop offset="100%" stop-color="#0a0509"/>
+          </radialGradient>
+
+          <!-- die internal pulse -->
+          <radialGradient id="diePulse" cx=".5" cy=".5" r=".5">
+            <stop offset="0%"  stop-color="rgba(142,255,166,.55)"/>
+            <stop offset="50%" stop-color="rgba(142,255,166,.15)"/>
+            <stop offset="100%" stop-color="rgba(142,255,166,0)"/>
+          </radialGradient>
+        </defs>
+
+        <!-- traces -->
+        <path class="trace"      d="M60 120 H260 V180 H326" />
+        <path class="trace-live" d="M60 120 H260 V180 H326" />
+        <path class="trace"      d="M40 260 H280 V222 H326" />
+        <path class="trace-live t2" d="M40 260 H280 V222 H326" />
+        <path class="trace"      d="M474 180 H560 V120 H760" />
+        <path class="trace-live t3" d="M474 180 H560 V120 H760" />
+        <path class="trace"      d="M474 222 H580 V300 H740" />
+        <path class="trace-live t4" d="M474 222 H580 V300 H740" />
+
+        <!-- terminator vias -->
+        <g>
+          <circle cx="60"  cy="120" r="3.5" fill="#0a0c10" stroke="#3a3d44" stroke-width=".8"/>
+          <circle cx="40"  cy="260" r="3.5" fill="#0a0c10" stroke="#3a3d44" stroke-width=".8"/>
+          <circle cx="760" cy="120" r="3.5" fill="#0a0c10" stroke="#3a3d44" stroke-width=".8"/>
+          <circle cx="740" cy="300" r="3.5" fill="#0a0c10" stroke="#3a3d44" stroke-width=".8"/>
+        </g>
+
+        <!-- ─── Chip ─── -->
+        <!-- shadow under chip -->
+        <ellipse cx="400" cy="278" rx="92" ry="6" fill="rgba(0,0,0,.55)" filter="blur(2px)"/>
+
+        <!-- pins (left) -->
+        <g>
+          <rect x="320" y="178" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="320" y="178" width="11" height="2"            fill="url(#pinTop)"/>
+          <rect x="320" y="196" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="320" y="196" width="11" height="2"            fill="url(#pinTop)"/>
+          <rect x="320" y="214" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="320" y="214" width="11" height="2"            fill="url(#pinTop)"/>
+          <rect x="320" y="232" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="320" y="232" width="11" height="2"            fill="url(#pinTop)"/>
+        </g>
+        <!-- pins (right) -->
+        <g>
+          <rect x="469" y="178" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="469" y="178" width="11" height="2"            fill="url(#pinTop)"/>
+          <rect x="469" y="196" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="469" y="196" width="11" height="2"            fill="url(#pinTop)"/>
+          <rect x="469" y="214" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="469" y="214" width="11" height="2"            fill="url(#pinTop)"/>
+          <rect x="469" y="232" width="11" height="9" rx="1.2" fill="url(#pin)"/>
+          <rect x="469" y="232" width="11" height="2"            fill="url(#pinTop)"/>
+        </g>
+
+        <!-- chip body (phenolic case) -->
+        <rect x="330" y="160" width="140" height="100" rx="6" ry="6" fill="url(#chipBody)"/>
+        <rect x="330" y="160" width="140" height="100" rx="6" ry="6" fill="url(#chipBevel)" opacity=".65"/>
+
+        <!-- index notch (top-left) — real chips have these -->
+        <circle cx="340" cy="170" r="2.4" fill="#06080b" stroke="rgba(255,255,255,.05)" stroke-width=".5"/>
+
+        <!-- recessed die cavity -->
+        <rect x="344" y="175" width="112" height="70" rx="3" fill="#06080c"
+              stroke="rgba(255,255,255,.04)" stroke-width=".8"/>
+
+        <!-- the silicon die — inset, multi-layered -->
+        <rect x="348" y="179" width="104" height="62" rx="2" fill="url(#die)"/>
+        <rect x="348" y="179" width="104" height="62" rx="2" fill="url(#dieSheen)" opacity=".7"/>
+
+        <!-- die microstructure: faint perpendicular traces & blocks -->
+        <g opacity=".35" stroke="rgba(190,210,230,.18)" stroke-width=".4" fill="none">
+          <line x1="356" y1="186" x2="444" y2="186"/>
+          <line x1="356" y1="234" x2="444" y2="234"/>
+          <line x1="370" y1="183" x2="370" y2="237"/>
+          <line x1="430" y1="183" x2="430" y2="237"/>
+          <rect x="358" y="190" width="14" height="10" rx=".5"/>
+          <rect x="378" y="190" width="20" height="10" rx=".5"/>
+          <rect x="402" y="190" width="14" height="10" rx=".5"/>
+          <rect x="358" y="220" width="20" height="12" rx=".5"/>
+          <rect x="384" y="220" width="14" height="12" rx=".5"/>
+          <rect x="404" y="220" width="20" height="12" rx=".5"/>
+        </g>
+
+        <!-- die internal pulse glow when powered -->
+        <ellipse class="die-pulse" cx="400" cy="210" rx="46" ry="22" fill="url(#diePulse)"/>
+
+        <!-- bond wires -->
+        <g stroke="rgba(190,200,215,.35)" stroke-width=".5" fill="none">
+          <path d="M348 186 Q340 184 332 187"/>
+          <path d="M348 200 Q340 198 332 201"/>
+          <path d="M348 220 Q340 220 332 220"/>
+          <path d="M348 234 Q340 236 332 237"/>
+          <path d="M452 186 Q460 184 468 187"/>
+          <path d="M452 200 Q460 198 468 201"/>
+          <path d="M452 220 Q460 220 468 220"/>
+          <path d="M452 234 Q460 236 468 237"/>
+        </g>
+
+        <!-- copper pad behind the + -->
+        <circle cx="448" cy="204" r="9" fill="url(#copperPad)"/>
+
+        <!-- silkscreen wordmark on chip case, with superscript copper + after the E -->
+        <g>
+          <text x="395" y="208" text-anchor="middle"
+                font-family="Space Grotesk, system-ui" font-weight="600"
+                font-size="13" letter-spacing="2.5"
+                fill="rgba(220,222,226,.82)">WG</text>
+          <text class="chip-mark" x="432" y="201" text-anchor="start"
+                font-family="Space Grotesk, system-ui" font-weight="700" font-size="9">+</text>
+        </g>
+
+        <!-- sine waves exhaling -->
+        <path class="sine"
+              d="M478 210 C500 210, 510 192, 530 192 S560 228, 580 210 S610 192, 630 210 S660 228, 680 210 S710 192, 730 210" />
+        <path class="sine s2"
+              d="M478 220 C495 220, 508 238, 525 238 S555 202, 575 220 S605 238, 625 220 S655 202, 675 220 S705 238, 725 220" />
+      </svg>
+    </div>
+
+    <p class="subline">
+      with <span class="accent">source-cited answers<span class="plus">+</span> silence on no-match<span class="full-stop">.</span></span>
+    </p>
+  </section>
+
+  <footer class="foot" id="foot">
+    <div class="meter">
+      <span>SIGNAL</span>
+      <span class="bars" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </span>
+    </div>
+    <div>V_02 <span class="plus">+</span> CITED · AUDITABLE · LOCAL</div>
+    <!-- ECG trace overlay drawn during the heartbeat sweep -->
+    <svg class="ecg-line" viewBox="0 0 1200 24" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 12
+               L 380 12
+               L 420 12
+               L 440 6
+               L 460 22
+               L 478 4
+               L 496 18
+               L 514 12
+               L 1200 12"/>
+    </svg>
+  </footer>
+
+  <a class="scroll-cue" href="#payload" aria-label="Descend to payload">
+    <span>Descend</span>
+    <span class="tick" aria-hidden="true"></span>
+  </a>
+</main>
+
+<!-- ─── PAYLOAD SECTION: the 5 nodes ─── -->
+<section class="payload" id="payload" data-screen-label="02 Payload">
+  <header class="payload-hud">
+    <div class="left">
+      <span>WHITEGLOVE<span class="plus">+</span></span>
+      <span style="color:var(--ink-4)">/</span>
+      <span>02 · PAYLOAD</span>
+    </div>
+    <div class="right">
+      <span class="seq-state">STANDBY</span>
+    </div>
+  </header>
+
+  <div class="payload-title-row">
+    <span class="rule"></span>
+    <h2 class="payload-title">FIVE NODES <span class="accent">·</span> ONE CIRCUIT</h2>
+    <span class="rule"></span>
+  </div>
+  <div class="payload-sub">
+    <!-- EDIT: payload tagline -->
+    From query to citation · arm the circuit to trace proof path
+  </div>
+
+  <!-- the graph -->
+  <div class="graph-stage" id="graphStage">
+
+    <!-- WIRES: drawn behind the nodes; coordinates are normalized to viewBox -->
+    <svg class="graph-wires" viewBox="0 0 1000 500" preserveAspectRatio="none" aria-hidden="true">
+      <!-- 1 → 2 -->
+      <path class="wire"      d="M 130 250 H 330" />
+      <path class="wire-live" d="M 130 250 H 330" />
+      <!-- 2 → 3a (top) -->
+      <path class="wire"        d="M 370 250 C 430 250, 460 140, 530 140" />
+      <path class="wire-live w2" d="M 370 250 C 430 250, 460 140, 530 140" />
+      <!-- 2 → 3b (bottom) -->
+      <path class="wire"        d="M 370 250 C 430 250, 460 360, 530 360" />
+      <path class="wire-live w3a" d="M 370 250 C 430 250, 460 360, 530 360" />
+      <!-- 3a → 4 -->
+      <path class="wire"         d="M 670 140 C 740 140, 770 250, 830 250" />
+      <path class="wire-live w3b" d="M 670 140 C 740 140, 770 250, 830 250" />
+      <!-- 3b → 4 -->
+      <path class="wire"         d="M 670 360 C 740 360, 770 250, 830 250" />
+      <path class="wire-live w4a" d="M 670 360 C 740 360, 770 250, 830 250" />
+      <!-- 4 → 5 -->
+      <path class="wire"         d="M 870 250 H 980" />
+      <path class="wire-live w5" d="M 870 250 H 980" />
+    </svg>
+
+    <!-- NODE 1: TRIGGER -->
+    <div class="node-slot col-1">
+      <div class="chip-node" data-node="1" tabindex="0">
+        <div class="body"></div>
+        <span class="led"></span>
+        <div class="pins left"><span></span><span></span><span></span></div>
+        <div class="pins right"><span></span><span></span><span></span></div>
+        <div class="glyph">
+          <!-- thin-line cutout: lightning / spark trigger -->
+          <svg viewBox="0 0 32 32"><path d="M18 3 L8 18 H15 L13 29 L24 13 H17 Z"/></svg>
+        </div>
+        <div class="tag"><span class="num">01</span>TRIGGER</div>
+        <!-- spec card: switch-blade flip-up -->
+        <div class="spec-card" aria-hidden="true">
+          <div class="card-body">
+            <div class="card-head"><span class="id">N_01 · TRIGGER</span><span>RECON</span></div>
+            <h3 class="card-title">Spot the Friction</h3>
+            <p class="card-brief">
+              <!-- EDIT: 1-line brief for Trigger -->
+              Notice the task you'd rather not do — the recurring drag, the manual loop, the bottleneck.
+            </p>
+            <div class="card-tags">
+              <span>signal_in</span><span>manual</span><span>repeating</span>
+            </div>
+            <div class="card-load"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 2: ROUTER -->
+    <div class="node-slot col-2">
+      <div class="chip-node" data-node="2" tabindex="0">
+        <div class="body"></div>
+        <span class="led"></span>
+        <div class="pins left"><span></span><span></span><span></span></div>
+        <div class="pins right"><span></span><span></span><span></span></div>
+        <div class="glyph">
+          <!-- thin-line cutout: branching router -->
+          <svg viewBox="0 0 32 32">
+            <path d="M5 16 H12"/>
+            <path d="M12 16 L20 8"/>
+            <path d="M12 16 L20 24"/>
+            <circle cx="22" cy="8" r="2.4"/>
+            <circle cx="22" cy="24" r="2.4"/>
+            <circle cx="10" cy="16" r="2.4"/>
+          </svg>
+        </div>
+        <div class="tag"><span class="num">02</span>ROUTER</div>
+        <div class="spec-card" aria-hidden="true">
+          <div class="card-body">
+            <div class="card-head"><span class="id">N_02 · ROUTER</span><span>INTAKE</span></div>
+            <h3 class="card-title">Retrieve by Similarity</h3>
+            <p class="card-brief">
+              <!-- EDIT: 1-line brief for Router -->
+              Similarity search selects the nearest qualifying shards from the approved corpus.
+            </p>
+            <div class="card-tags">
+              <span>query</span><span>match</span><span>rank</span>
+            </div>
+            <div class="card-load"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 3 — INTELLIGENCE pair (3a top, 3b bottom) -->
+    <div class="node-slot col-3">
+      <!-- 3a -->
+      <div class="chip-node" data-node="3a" tabindex="0">
+        <div class="body"></div>
+        <span class="led"></span>
+        <div class="pins left"><span></span><span></span></div>
+        <div class="pins right"><span></span><span></span></div>
+        <div class="glyph">
+          <!-- thin-line cutout: brain/lattice -->
+          <svg viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="9"/>
+            <path d="M7 16 H25"/>
+            <path d="M16 7 V25"/>
+            <path d="M10 10 L22 22"/>
+            <path d="M22 10 L10 22"/>
+          </svg>
+        </div>
+        <div class="tag"><span class="num">03a</span>DIAGNOSE</div>
+        <div class="spec-card" aria-hidden="true">
+          <div class="card-body">
+            <div class="card-head"><span class="id">N_03a · INTEL</span><span>ANALYZE</span></div>
+            <h3 class="card-title">Validate Evidence</h3>
+            <p class="card-brief">
+              <!-- EDIT: 1-line brief for Intelligence-Diagnose -->
+              Validate that returned text is source-cited and bound to reproducible evidence.
+            </p>
+            <div class="card-tags">
+              <span>citation</span><span>source</span><span>proof</span>
+            </div>
+            <div class="card-load"></div>
+          </div>
+        </div>
+      </div>
+      <!-- 3b -->
+      <div class="chip-node" data-node="3b" tabindex="0">
+        <div class="body"></div>
+        <span class="led"></span>
+        <div class="pins left"><span></span><span></span></div>
+        <div class="pins right"><span></span><span></span></div>
+        <div class="glyph">
+          <!-- thin-line cutout: blueprint -->
+          <svg viewBox="0 0 32 32">
+            <rect x="6" y="6" width="20" height="20" rx="1"/>
+            <path d="M6 12 H26"/>
+            <path d="M12 12 V26"/>
+            <circle cx="19" cy="19" r="2.2"/>
+          </svg>
+        </div>
+        <div class="tag"><span class="num">03b</span>DESIGN</div>
+        <div class="spec-card" aria-hidden="true">
+          <div class="card-body">
+            <div class="card-head"><span class="id">N_03b · INTEL</span><span>BLUEPRINT</span></div>
+            <h3 class="card-title">Enforce Refusal Contract</h3>
+            <p class="card-brief">
+              <!-- EDIT: 1-line brief for Intelligence-Design -->
+              If confidence is below threshold, return no answer; silence is explicit and logged.
+            </p>
+            <div class="card-tags">
+              <span>no-match</span><span>silence</span><span>safety</span>
+            </div>
+            <div class="card-load"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 4: EXECUTE -->
+    <div class="node-slot col-4">
+      <div class="chip-node" data-node="4" tabindex="0">
+        <div class="body"></div>
+        <span class="led"></span>
+        <div class="pins left"><span></span><span></span><span></span></div>
+        <div class="pins right"><span></span><span></span><span></span></div>
+        <div class="glyph">
+          <!-- thin-line cutout: gear in motion -->
+          <svg viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="5"/>
+            <path d="M16 4 V8"/><path d="M16 24 V28"/>
+            <path d="M4 16 H8"/><path d="M24 16 H28"/>
+            <path d="M7.5 7.5 L10 10"/><path d="M22 22 L24.5 24.5"/>
+            <path d="M24.5 7.5 L22 10"/><path d="M10 22 L7.5 24.5"/>
+          </svg>
+        </div>
+        <div class="tag"><span class="num">04</span>EXECUTE</div>
+        <div class="spec-card" aria-hidden="true">
+          <div class="card-body">
+            <div class="card-head"><span class="id">N_04 · EXECUTE</span><span>DEPLOY</span></div>
+            <h3 class="card-title">Snapshot + Audit</h3>
+            <p class="card-brief">
+              <!-- EDIT: 1-line brief for Execute -->
+              Freeze snapshot state and maintain append-only audit trail for every retrieval event.
+            </p>
+            <div class="card-tags">
+              <span>snapshot</span><span>audit</span><span>verify</span>
+            </div>
+            <div class="card-load"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 5: MARKETPLACE -->
+    <div class="node-slot col-5">
+      <div class="chip-node" data-node="5" tabindex="0">
+        <div class="body"></div>
+        <span class="led"></span>
+        <div class="pins left"><span></span><span></span><span></span></div>
+        <div class="pins right"><span></span><span></span><span></span></div>
+        <div class="glyph">
+          <!-- thin-line cutout: stacked tiles / marketplace -->
+          <svg viewBox="0 0 32 32">
+            <rect x="5" y="5" width="9" height="9" rx="1"/>
+            <rect x="18" y="5" width="9" height="9" rx="1"/>
+            <rect x="5" y="18" width="9" height="9" rx="1"/>
+            <rect x="18" y="18" width="9" height="9" rx="1"/>
+          </svg>
+        </div>
+        <div class="tag"><span class="num">05</span>MARKETPLACE</div>
+        <div class="spec-card" aria-hidden="true">
+          <div class="card-body">
+            <div class="card-head"><span class="id">N_05 · MARKET</span><span>SHARE</span></div>
+            <h3 class="card-title">Pilot + Governance Pack</h3>
+            <p class="card-brief">
+              <!-- EDIT: 1-line brief for Marketplace -->
+              Package launch docs, compliance mapping, and pilot SOW/order forms for procurement-ready rollout.
+            </p>
+            <div class="card-tags">
+              <span>docs</span><span>compliance</span><span>pilot</span>
+            </div>
+            <div class="card-load"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.graph-stage -->
+
+  <!-- ARM switch -->
+  <div class="arm-row">
+    <button class="arm-btn" id="armBtn" type="button">
+      <span class="arm-dots" aria-hidden="true"></span>
+      <svg class="arm-spark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinejoin="round" strokeLinecap="round" stroke-width="0.6" stroke="currentColor" fill="currentColor" d="M14.187 8.096L15 5.25L15.813 8.096C16.0231 8.83114 16.4171 9.50062 16.9577 10.0413C17.4984 10.5819 18.1679 10.9759 18.903 11.186L21.75 12L18.904 12.813C18.1689 13.0231 17.4994 13.4171 16.9587 13.9577C16.4181 14.4984 16.0241 15.1679 15.814 15.903L15 18.75L14.187 15.904C13.9769 15.1689 13.5829 14.4994 13.0423 13.9587C12.5016 13.4181 11.8321 13.0241 11.097 12.814L8.25 12L11.096 11.187C11.8311 10.9769 12.5006 10.5829 13.0413 10.0423C13.5819 9.50162 13.9759 8.83214 14.186 8.097L14.187 8.096Z"/>
+        <path strokeLinejoin="round" strokeLinecap="round" stroke-width="0.6" stroke="currentColor" fill="currentColor" d="M6 14.25L5.741 15.285C5.59267 15.8785 5.28579 16.4206 4.85319 16.8532C4.42059 17.2858 3.87853 17.5927 3.285 17.741L2.25 18L3.285 18.259C3.87853 18.4073 4.42059 18.7142 4.85319 19.1468C5.28579 19.5794 5.59267 20.1215 5.741 20.715L6 21.75L6.259 20.715C6.40725 20.1216 6.71398 19.5796 7.14639 19.147C7.5788 18.7144 8.12065 18.4075 8.714 18.259L9.75 18L8.714 17.741C8.12065 17.5925 7.5788 17.2856 7.14639 16.853C6.71398 16.4204 6.40725 15.8784 6.259 15.285L6 14.25Z"/>
+        <path strokeLinejoin="round" strokeLinecap="round" stroke-width="0.6" stroke="currentColor" fill="currentColor" d="M6.5 4L6.303 4.5915C6.24777 4.75718 6.15472 4.90774 6.03123 5.03123C5.90774 5.15472 5.75718 5.24777 5.5915 5.303L5 5.5L5.5915 5.697C5.75718 5.75223 5.90774 5.84528 6.03123 5.96877C6.15472 6.09226 6.24777 6.24282 6.303 6.4085L6.5 7L6.697 6.4085C6.75223 6.24282 6.84528 6.09226 6.96877 5.96877C7.09226 5.84528 7.24282 5.75223 7.4085 5.697L8 5.5L7.4085 5.303C7.24282 5.24777 7.09226 5.15472 6.96877 5.03123C6.84528 4.90774 6.75223 4.75718 6.697 4.5915L6.5 4Z"/>
+      </svg>
+      <span class="arm-text">ARM CIRCUIT</span>
+    </button>
+    <span class="arm-status" id="armStatus">STANDBY</span>
+  </div>
+</section>
+
+<button class="power-btn" id="powerBtn" type="button" title="Toggle power">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <path d="M12 3v9"/>
+    <path d="M5.5 7.5a8 8 0 1 0 13 0"/>
+  </svg>
+</button>
+
+
+<script>
+  // ─── Living grid background — restored ──────────────────────────────
+  (() => {
+    const c = document.getElementById('living-bg');
+    const ctx = c.getContext('2d');
+    let W = 0, H = 0;
+    const resize = () => { W = c.width = innerWidth; H = c.height = innerHeight; };
+    addEventListener('resize', resize); resize();
+
+    let mx = W/2, my = H/2, tx = W/2, ty = H/2, active = false;
+    addEventListener('mousemove', e => { tx = e.clientX; ty = e.clientY; active = true; });
+
+    let t = 0;
+    const tick = () => {
+      t += 0.002;
+      if (active){ mx += (tx - mx)*0.018; my += (ty - my)*0.018; }
+      ctx.fillStyle = '#040508';
+      ctx.fillRect(0,0,W,H);
+
+      const spacing = 64;
+      const xN = Math.ceil(W/spacing)+1, yN = Math.ceil(H/spacing)+1;
+      const cx = W/2, cy = H/2;
+      const maxD = Math.max(W,H)/1.6;
+
+      for (let x=0; x<xN; x++){
+        for (let y=0; y<yN; y++){
+          const nx = Math.sin(t + y*0.1)*10;
+          const ny = Math.cos(t + x*0.1)*10;
+          const px = x*spacing + nx;
+          const py = y*spacing + ny;
+          const d  = Math.hypot(px-cx, py-cy);
+          const baseO = Math.max(0, 1 - d/maxD) * 0.28;
+          const dm = active ? Math.max(0, 1 - Math.hypot(px-mx, py-my)/320) * 0.55 : 0;
+          const o = Math.min(1, baseO + dm);
+          ctx.beginPath();
+          ctx.arc(px, py, 1.2, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(142,255,166,${o})`;
+          ctx.fill();
+        }
+      }
+
+      if (active){
+        const g = ctx.createRadialGradient(mx,my,0,mx,my,460);
+        g.addColorStop(0,'rgba(142,255,166,.06)');
+        g.addColorStop(.35,'rgba(142,255,166,.02)');
+        g.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      }
+
+      // slow sweeping gradient — radar feel
+      const sg = ctx.createLinearGradient(0, Math.sin(t)*H, 0, Math.cos(t)*H + H);
+      sg.addColorStop(0,'rgba(0,0,0,.4)');
+      sg.addColorStop(.5,'rgba(50,70,60,.06)');
+      sg.addColorStop(1,'rgba(0,0,0,.55)');
+      ctx.fillStyle = sg; ctx.fillRect(0,0,W,H);
+
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  })();
+
+  // ─── Power-on sequence ──────────────────────────────────────────────
+  const stage = document.getElementById('stage');
+  const stateLabel = stage.querySelector('.state');
+  const powerBtn = document.getElementById('powerBtn');
+  const foot = document.getElementById('foot');
+  const setPowered = (on) => {
+    stage.classList.toggle('powered', on);
+    stateLabel.textContent = on ? 'ACTIVE' : 'DORMANT';
+  };
+
+  let didIntro = false;
+  const runIntro = () => {
+    if (didIntro) return;
+    didIntro = true;
+    setPowered(true);
+    // ECG / heartbeat sweep fires shortly after the copper "+" lands
+    // (chip-mark transition delay = .5s, transition = 1.4s → kick the sweep at ~1.6s)
+    setTimeout(() => {
+      foot.classList.add('sweep');
+    }, 1700);
+    // Auto-scroll to payload after the sweep completes (~1.6s anim + buffer)
+    setTimeout(() => {
+      const payload = document.getElementById('payload');
+      if (payload) payload.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 3600);
+  };
+  setTimeout(runIntro, 1100);
+
+  powerBtn.addEventListener('click', () => {
+    const on = stage.classList.contains('powered');
+    setPowered(false);
+    foot.classList.remove('sweep');
+    if (!on) return;
+    setTimeout(() => {
+      setPowered(true);
+      // re-trigger sweep on power cycle
+      requestAnimationFrame(() => {
+        foot.classList.remove('sweep');
+        setTimeout(() => foot.classList.add('sweep'), 50);
+      });
+    }, 280);
+  });
+
+  // ─── ARM CIRCUIT — sequential payload ignition ──────────────────────
+  const armBtn = document.getElementById('armBtn');
+  const armStatus = document.getElementById('armStatus');
+  const payload = document.getElementById('payload');
+  const seqState = payload.querySelector('.seq-state');
+  // ignition order: 1 → 2 → (3a + 3b) → 4 → 5
+  const sequence = [
+    { sel:'[data-node="1"]',  status:'01 · TRIGGER',   delay:0    },
+    { sel:'[data-node="2"]',  status:'02 · ROUTER',    delay:700  },
+    { sel:'[data-node="3a"]', status:'03 · INTEL',     delay:1400 },
+    { sel:'[data-node="3b"]', status:'03 · INTEL',     delay:1500 },
+    { sel:'[data-node="4"]',  status:'04 · EXECUTE',   delay:2300 },
+    { sel:'[data-node="5"]',  status:'05 · MARKETPLACE', delay:3100 },
+  ];
+  let armed = false;
+  const arm = () => {
+    if (armed) return;
+    armed = true;
+    armBtn.classList.add('armed');
+    armBtn.disabled = true;
+    payload.classList.add('armed');
+    seqState.textContent = 'ARMED';
+    armStatus.textContent = 'IGNITING';
+    sequence.forEach(step => {
+      setTimeout(() => {
+        const el = payload.querySelector(step.sel);
+        if (el) el.classList.add('lit');
+        armStatus.textContent = step.status;
+      }, step.delay);
+    });
+    setTimeout(() => {
+      armStatus.textContent = 'CIRCUIT LIVE';
+    }, 3700);
+  };
+  armBtn.addEventListener('click', arm);
+  // also auto-arm on Enter when focused
+  armBtn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); arm(); }
+  });
+
+  // ─── Spec cards: append OPEN cue, wire click ripple, expose hook ────
+  document.querySelectorAll('.spec-card').forEach(card => {
+    // remove aria-hidden so the now-interactive card body is reachable
+    card.removeAttribute('aria-hidden');
+    const body = card.querySelector('.card-body');
+    if (!body) return;
+    // make focusable + clickable
+    body.setAttribute('role', 'button');
+    body.setAttribute('tabindex', '0');
+    // add OPEN cue in the card head
+    const head = body.querySelector('.card-head');
+    if (head && !head.querySelector('.open-cue')) {
+      const cue = document.createElement('span');
+      cue.className = 'open-cue';
+      cue.textContent = '▸ OPEN';
+      // replace the right-hand label with a wrapper holding both: existing label + cue
+      const rightLabels = head.querySelectorAll('span');
+      const right = rightLabels[rightLabels.length - 1];
+      if (right) {
+        const wrap = document.createElement('span');
+        wrap.style.display = 'inline-flex';
+        wrap.style.gap = '8px';
+        wrap.style.alignItems = 'center';
+        right.replaceWith(wrap);
+        wrap.appendChild(right);
+        wrap.appendChild(cue);
+      }
+    }
+    // click → ripple + emit event (placeholder for future routing)
+    const fire = (e) => {
+      // ripple anchored at click point
+      const rect = body.getBoundingClientRect();
+      const ripple = document.createElement('span');
+      ripple.className = 'click-ripple';
+      const x = (e.clientX != null ? e.clientX - rect.left : rect.width/2);
+      const y = (e.clientY != null ? e.clientY - rect.top  : rect.height/2);
+      ripple.style.left = x + 'px';
+      ripple.style.top  = y + 'px';
+      body.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+      // fire a custom event so future click-routing can hook in
+      const node = card.closest('.chip-node');
+      const id = node ? node.getAttribute('data-node') : null;
+      card.dispatchEvent(new CustomEvent('cosine:specOpen', { bubbles:true, detail:{ node:id } }));
+    };
+    body.addEventListener('click', fire);
+    body.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(e); }
+    });
+  });
+</script>
+
+<script type="text/babel">
+const { useEffect } = React;
+
+const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
+  "palette": "mint",
+  "showCornerTicks": true,
+  "showHud": true,
+  "subline": "with source-cited answers + silence on no-match."
+}/*EDITMODE-END*/;
+
+const PALETTES = {
+  mint:   { power:'#8effa6', soft:'rgba(142,255,166,.14)', glow:'rgba(142,255,166,.32)', label:'Mint (signal)' },
+  amber:  { power:'#e8b558', soft:'rgba(232,181,88,.18)',  glow:'rgba(232,181,88,.35)',  label:'Amber field radio' },
+  bone:   { power:'#e8e6df', soft:'rgba(232,230,223,.12)', glow:'rgba(232,230,223,.25)', label:'Bone (no color)' },
+  ice:    { power:'#9ec9ff', soft:'rgba(158,201,255,.14)', glow:'rgba(158,201,255,.30)', label:'Ice blue' },
+};
+
+function TweaksApp(){
+  const [t, setTweak] = window.useTweaks(TWEAK_DEFAULS);
+
+  useEffect(() => {
+    const p = PALETTES[t.palette] || PALETTES.mint;
+    const r = document.documentElement;
+    r.style.setProperty('--power', p.power);
+    r.style.setProperty('--power-soft', p.soft);
+    r.style.setProperty('--power-glow', p.glow);
+  }, [t.palette]);
+
+  useEffect(() => {
+    const wrap = document.querySelector('.systems-wrap');
+    if (wrap) wrap.dataset.ticks = t.showCornerTicks ? 'on' : 'off';
+  }, [t.showCornerTicks]);
+
+  useEffect(() => {
+    document.querySelector('.hud').style.opacity = t.showHud ? '1' : '0';
+    document.querySelector('.foot').style.opacity = t.showHud ? '1' : '0';
+  }, [t.showHud]);
+
+  useEffect(() => {
+    const el = document.querySelector('.subline');
+    if (!el) return;
+    const txt = (t.subline || '').trim();
+    const m = txt.match(/^with a (.+?)\.?$/i);
+    if (m) {
+      const inner = m[1].replace(/SINE\+/i, 'SINE<span class="plus">+</span>');
+      el.innerHTML = `with a <span class="accent">${inner}<span class="full-stop">.</span></span>`;
+    } else {
+      el.textContent = txt;
+    }
+  }, [t.subline]);
+
+  return (
+    <window.TweaksPanel title="Tweaks">
+      <window.TweakSection title="Palette">
+        <window.TweakSelect
+          label="Power signal"
+          value={t.palette}
+          onChange={v => setTweak('palette', v)}
+          options={Object.entries(PALETTES).map(([k,v]) => ({value:k, label:v.label}))}
+        />
+      </window.TweakSection>
+      <window.TweakSection title="Chrome">
+        <window.TweakToggle label="Corner ticks on SYSTEMS" value={t.showCornerTicks}
+          onChange={v => setTweak('showCornerTicks', v)} />
+        <window.TweakToggle label="HUD bars" value={t.showHud}
+          onChange={v => setTweak('showHud', v)} />
+      </window.TweakSection>
+      <window.TweakSection title="Copy">
+        <window.TweakText label="Subline" value={t.subline}
+          onChange={v => setTweak('subline', v)} />
+      </window.TweakSection>
+    </window.TweaksPanel>
+  );
+}
+
+const root = document.createElement('div');
+document.body.appendChild(root);
+ReactDOM.createRoot(root).render(<TweaksApp />);
+</script>
+
+</body>
+</html>

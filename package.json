@@ -13,6 +13,7 @@
     "test:regression": "bash tests/regression/test_pipeline.sh",
     "test:retrieval": "ts-node tests/retrieval/test_retrieval_contract.ts",
     "secrets:scan": "bash scripts/scan-secrets.sh",
+    "docs:release:check": "bash scripts/docs_release_check.sh",
     "hooks:install": "bash scripts/install-git-hooks.sh",
     "calibrate": "ts-node brain/indexer/calibration.ts",
     "shatter": "ts-node brain/shatter.ts",

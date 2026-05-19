@@ -1,7 +1,7 @@
 # WhiteGlove for Legal
 
 ## A research assistant that will not invent a case.
-**Repo SHA:** `e73b7ad` **Last updated:** 2026-05-19
+**Repo SHA:** `e4e66ff` **Last updated:** 2026-05-19
 
 You have read the headlines. Attorneys sanctioned for filing briefs containing AI-fabricated citations. Firms exposed for sending privileged work product to cloud AI vendors. The market answered with louder cloud LLMs. WhiteGlove Agent Husk answers with a different architecture: every retrieval is bound to a real document in your curated corpus, or there is no retrieval.
 

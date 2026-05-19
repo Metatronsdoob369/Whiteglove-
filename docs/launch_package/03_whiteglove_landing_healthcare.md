@@ -1,7 +1,7 @@
 # WhiteGlove for Healthcare
 
 ## The AI that refuses to guess about your patients.
-**Repo SHA:** `e73b7ad` **Last updated:** 2026-05-19
+**Repo SHA:** `e4e66ff` **Last updated:** 2026-05-19
 
 Clinical AI tools that hallucinate are not tools — they are liabilities. WhiteGlove Agent Husk returns only fully-cited, source-bound answers from your curated medical corpus. When the corpus does not contain a qualifying answer, it stays silent. No fabricated dosages. No invented contraindications. No invented citations.
 

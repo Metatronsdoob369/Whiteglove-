@@ -1,6 +1,6 @@
 # WhiteGlove Agent Husk — Technical Datasheet
 
-**Version:** MVP Golden State (`e73b7ad`) **Release Date:** 2026-05-19 **Document Owner:** WhiteGlove Engineering **Classification:** External — Buyer / Procurement
+**Version:** MVP Golden State (`e4e66ff`) **Release Date:** 2026-05-19 **Document Owner:** WhiteGlove Engineering **Classification:** External — Buyer / Procurement
 
 ---
 

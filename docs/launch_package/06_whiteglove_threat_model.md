@@ -1,6 +1,6 @@
 # WhiteGlove Agent Husk — Threat Model & Security Posture
 
-**Version:** 1.1 (`e73b7ad`) **Date:** 2026-05-19 **Document Owner:** WhiteGlove Security **Audience:** CISO, security architect, procurement security review, regulatory examiner
+**Version:** 1.1 (`e4e66ff`) **Date:** 2026-05-19 **Document Owner:** WhiteGlove Security **Audience:** CISO, security architect, procurement security review, regulatory examiner
 
 This document enumerates the threats WhiteGlove Agent Husk is designed to defend against, the mitigation built into the architecture, and the residual risks that remain the operator's responsibility.
 

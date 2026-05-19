@@ -1,0 +1,104 @@
+name: Docs Health Check
+
+on:
+  schedule:
+    - cron: '0 13 * * 1' # Weekly Monday 13:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  docs-health:
+    name: Scheduled Docs Hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure ripgrep is available
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
+
+      - name: Run docs release checker
+        id: docs_check
+        continue-on-error: true
+        run: bash scripts/docs_release_check.sh --no-ci
+
+      - name: Create or update failure issue
+        if: steps.docs_check.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const title = 'Docs Health Check Failure';
+            const labels = ['docs-health', 'ci', 'maintenance'];
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Automated weekly docs health check failed.',
+              '',
+              `- Workflow: ${context.workflow}`,
+              `- Run: ${runUrl}`,
+              `- Commit: ${context.sha}`,
+              '',
+              'Please review and fix before the next release cycle.'
+            ].join('\n');
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label });
+              } catch (err) {
+                if (err.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: label,
+                    color: label === 'docs-health' ? 'B60205' : label === 'ci' ? '1D76DB' : '5319E7',
+                  });
+                } else {
+                  throw err;
+                }
+              }
+            }
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              labels: 'docs-health',
+              per_page: 100,
+            });
+
+            const existing = issues.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body,
+              });
+              core.info(`Updated existing issue #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels,
+              });
+              core.info(`Created issue #${created.data.number}`);
+            }
+
+      - name: Fail workflow if check failed
+        if: steps.docs_check.outcome == 'failure'
+        run: |
+          echo "Docs health check failed."
+          exit 1

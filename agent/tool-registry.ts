@@ -3,9 +3,50 @@
  *
  * All tools the agent can invoke. Registration is explicit — nothing
  * runs unless it's registered here and allowed by the active role contract.
+ *
+ * Channel B (Spectral Terrain Watchdog):
+ *   When WATCHDOG_URL is set (default: http://127.0.0.1:7340/intercept),
+ *   every tool invocation POSTs an intent payload before execution.
+ *   Response { action: "hold" } blocks the call and returns a held error.
+ *   Response { action: "proceed" } or any network failure → proceed (fail-open).
+ *   Set WATCHDOG_ENFORCE=1 to convert holds into hard blocks.
  */
 
 import type { Tool, AgentContext, ToolResult } from "./types";
+
+const WATCHDOG_URL  = process.env["WATCHDOG_URL"]  ?? "http://127.0.0.1:7340/intercept";
+const WATCHDOG_ENFORCE = process.env["WATCHDOG_ENFORCE"] === "1";
+const WATCHDOG_TIMEOUT_MS = 3_000;
+
+async function channelBCheck(
+  toolName: string,
+  input: Record<string, unknown>,
+  context: AgentContext
+): Promise<"proceed" | "hold"> {
+  const payload = {
+    tool:          toolName,
+    args:          input,
+    code_to_write: typeof input["code"] === "string" ? input["code"] : undefined,
+    domain:        context.role.sector,
+  };
+  try {
+    const ac  = new AbortController();
+    const tid = setTimeout(() => ac.abort(), WATCHDOG_TIMEOUT_MS);
+    const res = await fetch(WATCHDOG_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+      signal:  ac.signal,
+    });
+    clearTimeout(tid);
+    if (!res.ok) return "proceed";
+    const body = await res.json() as { action?: string };
+    return body.action === "hold" ? "hold" : "proceed";
+  } catch {
+    // Watchdog not running or timed out — fail open
+    return "proceed";
+  }
+}
 
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
@@ -40,6 +81,19 @@ export class ToolRegistry {
 
     if (!context.role.allowedTools.includes(name)) {
       return { ok: false, error: `Tool "${name}" not permitted by role "${context.role.id}"` };
+    }
+
+    // ── Channel B: Spectral Terrain pre-tool-call geometry check ─────────────
+    const watchdogAction = await channelBCheck(name, input, context);
+    if (watchdogAction === "hold") {
+      const detail = WATCHDOG_ENFORCE
+        ? `Tool "${name}" blocked by watchdog (enforce mode)`
+        : `Tool "${name}" flagged by watchdog (observe mode — proceeding)`;
+      if (WATCHDOG_ENFORCE) {
+        return { ok: false, error: detail };
+      }
+      // Observe mode: log and continue
+      console.warn(`[watchdog] ${detail}`);
     }
 
     try {

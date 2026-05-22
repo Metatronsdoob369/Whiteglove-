@@ -20,6 +20,20 @@ import path from "path";
 import { LandmarkOrchestrator } from "../brain/landmark-orchestrator";
 import { ShardCache } from "../brain/cache/shard-cache";
 
+// Spectral Terrain Layer 4 — circadian hardening loop.
+// Dynamically imported so the pulse degrades gracefully if spectral-terrain
+// is not present in this environment (different deployment context).
+async function runTerrainCircadian(): Promise<void> {
+  try {
+    const { runCircadian } = await import(
+      "/Users/joewales/NODE_OUT_Master/spectral-terrain/engine/circadian.js"
+    );
+    await runCircadian();
+  } catch (err: any) {
+    console.warn(` [PULSE:DREAM] Terrain circadian skipped: ${err.message}`);
+  }
+}
+
 // ─── Configuration ───────────────────────────────────────────────
 
 const HEARTBEAT_INTERVAL = 60 * 60 * 1000; // 1 hour
@@ -43,9 +57,9 @@ export class CircadianPulse {
    * First beat fires immediately, then every HEARTBEAT_INTERVAL.
    */
   async start(): Promise<void> {
-    console.log("🕒 [PULSE] Heartbeat started. Interval: 1 hour.");
-    console.log(`🕒 [PULSE] Shard directory: ${SHARD_DIR}`);
-    console.log(`🕒 [PULSE] ZIM watch directory: ${ZIM_WATCH_DIR}`);
+    console.log(" [PULSE] Heartbeat started. Interval: 1 hour.");
+    console.log(` [PULSE] Shard directory: ${SHARD_DIR}`);
+    console.log(` [PULSE] ZIM watch directory: ${ZIM_WATCH_DIR}`);
 
     // Initial index build
     await this.orchestrator.buildIndex();
@@ -65,7 +79,7 @@ export class CircadianPulse {
     const hour = new Date().getHours();
     const timestamp = new Date().toISOString();
 
-    console.log(`\n💓 [PULSE] Beat at ${timestamp} (hour: ${hour})`);
+    console.log(`\n [PULSE] Beat at ${timestamp} (hour: ${hour})`);
 
     if (hour >= 0 && hour < 6) {
       await this.dream();
@@ -107,26 +121,26 @@ export class CircadianPulse {
    */
   private async dream(): Promise<void> {
     if (this.isDreaming) {
-      console.log("🌙 [PULSE:DREAM] Already dreaming. Skipping.");
+      console.log(" [PULSE:DREAM] Already dreaming. Skipping.");
       return;
     }
 
     this.isDreaming = true;
-    console.log("🌙 [PULSE:DREAM] Starting consolidation...");
+    console.log(" [PULSE:DREAM] Starting consolidation...");
 
     try {
       // 1. Full re-index
-      console.log("🌙 [PULSE:DREAM] Phase 1: Rebuilding SimHash index...");
+      console.log(" [PULSE:DREAM] Phase 1: Rebuilding SimHash index...");
       await this.orchestrator.buildIndex();
       this.lastShardCount = this.countShards();
 
       // 2. Integrity check — verify all shard files parse correctly
-      console.log("🌙 [PULSE:DREAM] Phase 2: Verifying shard integrity (batched)...");
+      console.log(" [PULSE:DREAM] Phase 2: Verifying shard integrity (batched)...");
       const integrity = await this.verifyShardsIntegrity();
 
       // 3. Diagnostic snapshot
       const diag = this.orchestrator.diagnostics();
-      console.log("🌙 [PULSE:DREAM] Phase 3: Diagnostic snapshot:");
+      console.log(" [PULSE:DREAM] Phase 3: Diagnostic snapshot:");
       console.log(`   Index size:     ${diag.indexSize} shards`);
       console.log(`   Cache size:     ${diag.cacheSize}/${diag.cacheCapacity}`);
       console.log(`   Threshold:      ${diag.threshold}`);
@@ -146,12 +160,16 @@ export class CircadianPulse {
         integrityCorrupted: integrity.corrupted.length
       });
 
+      // 4. Spectral Terrain Layer 4 — centroid recompute + monitor recalibration
+      console.log(" [PULSE:DREAM] Phase 4: Terrain circadian hardening...");
+      await runTerrainCircadian();
+
     } catch (err: any) {
       console.error("❌ [PULSE:DREAM] CRITICAL FAILURE during consolidation:", err);
       this.logAudit("DREAM_FAILURE", { error: err.message, stack: err.stack });
     } finally {
       this.isDreaming = false;
-      console.log("🌙 [PULSE:DREAM] Consolidation cycle exited.");
+      console.log(" [PULSE:DREAM] Consolidation cycle exited.");
     }
   }
 

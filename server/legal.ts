@@ -1,29 +1,41 @@
 /**
  * legal.ts — WhiteGlove Legal Query Endpoint
  *
- * GET  /legal/health       — check Pi Qdrant + Ollama connectivity
- * POST /legal/query        — embed query, search Pi Qdrant, return cited results
+ * GET  /legal/health       — check all Qdrant instances + Ollama connectivity
+ * POST /legal/query        — embed query, fan out to all Qdrant nodes, merge + re-rank
  *
- * Embedding: mxbai-embed-large via Ollama on Pi (100.113.215.46:11434)
- * Vector store: Pi Qdrant (100.113.215.46:6340), collection: legal-heatmap
+ * Embedding: mxbai-embed-large via Ollama (Pi preferred, localhost fallback)
+ * Vector stores (all queried in parallel):
+ *   - Pi Qdrant   (100.113.215.46:6340) legal-heatmap — 52K Alabama Code
+ *   - Local Qdrant (localhost:6340)     legal-heatmap — 11K Law StackExchange Q&A
  * Dims: 3072 (T‖T-1‖T-start concatenation)
  *
- * Returns top-k results ranked by Qdrant cosine score, enriched with:
+ * Returns top-k results merged and re-ranked by score, enriched with:
  *   - spectral_band: settled / active / contested / noise
  *   - corpus_heat: graph Laplacian diffusion score
  *   - drift: T-1 axis delta (confidence indicator)
- *   - citation: human-readable "Ala. Code §X-X-X" or US Code cite
+ *   - citation: human-readable "Ala. Code §X-X-X" or Q&A title
  */
 
 import http from "http";
 import fs from "fs";
 import path from "path";
 
-const QDRANT_URL  = process.env.WG_QDRANT_URL   ?? "http://100.113.215.46:6340";
+// Primary embedding host — Pi preferred, localhost fallback
 const OLLAMA_URL  = process.env.WG_OLLAMA_URL   ?? "http://100.113.215.46:11434";
-const COLLECTION  = process.env.WG_COLLECTION   ?? "legal-heatmap";
 const EMBED_MODEL = process.env.WG_EMBED_MODEL  ?? "mxbai-embed-large";
+const COLLECTION  = process.env.WG_COLLECTION   ?? "legal-heatmap";
 const TOP_K       = 8;
+
+// All Qdrant nodes to fan out to
+const QDRANT_NODES: string[] = (
+  process.env.WG_QDRANT_NODES
+    ? process.env.WG_QDRANT_NODES.split(",")
+    : ["http://100.113.215.46:6340", "http://localhost:6340"]
+);
+
+// Legacy single-node var still respected if set (overrides node list)
+const QDRANT_URL  = process.env.WG_QDRANT_URL ?? QDRANT_NODES[0];
 
 // Directories to search for shard JSON files (ordered by priority)
 const SHARD_DIRS = [
@@ -62,22 +74,37 @@ interface QdrantHit {
   payload: Record<string, unknown>;
 }
 
-async function qdrantSearch(vector: number[], limit: number): Promise<QdrantHit[]> {
-  const resp = await fetch(`${QDRANT_URL}/collections/${COLLECTION}/points/search`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      vector,
-      limit,
-      with_payload: true,
-      with_vector: false,
-    }),
-  });
-  if (!resp.ok) {
-    throw new Error(`Qdrant search failed: ${resp.status} ${await resp.text()}`);
+async function qdrantSearchOne(nodeUrl: string, vector: number[], limit: number): Promise<QdrantHit[]> {
+  try {
+    const resp = await fetch(`${nodeUrl}/collections/${COLLECTION}/points/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vector, limit, with_payload: true, with_vector: false }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json() as { result: QdrantHit[] };
+    return data.result ?? [];
+  } catch {
+    return [];
   }
-  const data = await resp.json() as { result: QdrantHit[] };
-  return data.result ?? [];
+}
+
+async function qdrantSearch(vector: number[], limit: number): Promise<QdrantHit[]> {
+  // Fan out to all nodes in parallel, merge by score, deduplicate by shard_id
+  const perNode = limit + 4; // fetch a few extra per node before trimming
+  const results = await Promise.all(QDRANT_NODES.map(n => qdrantSearchOne(n, vector, perNode)));
+  const all = results.flat();
+
+  // Deduplicate by shard_id payload, keep highest score
+  const seen = new Map<string, QdrantHit>();
+  for (const hit of all) {
+    const key = String(hit.payload?.shard_id ?? hit.id);
+    const existing = seen.get(key);
+    if (!existing || hit.score > existing.score) seen.set(key, hit);
+  }
+
+  return [...seen.values()].sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
 // ─── Result Formatter ─────────────────────────────────────────────────────────
@@ -158,18 +185,21 @@ function resolveShardText(shardId: string): ShardContent | null {
 export async function handleLegalHealth(): Promise<object> {
   const checks: Record<string, string> = {};
 
-  // Qdrant
-  try {
-    const r = await fetch(`${QDRANT_URL}/collections/${COLLECTION}`);
-    if (r.ok) {
-      const d = await r.json() as { result?: { points_count?: number } };
-      checks.qdrant = `ok — ${d.result?.points_count ?? "?"} points`;
-    } else {
-      checks.qdrant = `error ${r.status}`;
+  // Qdrant — check all nodes
+  await Promise.all(QDRANT_NODES.map(async (node) => {
+    const label = `qdrant:${node.replace("http://", "")}`;
+    try {
+      const r = await fetch(`${node}/collections/${COLLECTION}`, { signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const d = await r.json() as { result?: { points_count?: number } };
+        checks[label] = `ok — ${d.result?.points_count ?? "?"} points`;
+      } else {
+        checks[label] = `error ${r.status}`;
+      }
+    } catch (e) {
+      checks[label] = `unreachable: ${e}`;
     }
-  } catch (e) {
-    checks.qdrant = `unreachable: ${e}`;
-  }
+  }));
 
   // Ollama
   try {

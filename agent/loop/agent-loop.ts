@@ -110,6 +110,9 @@ export class AgentLoop {
     }
 
     // ── Step 3: Build response from verified sources ───────────────────────────
+    // Tool calls via registry.invoke() are Channel B-gated — the ToolRegistry
+    // POSTs each call to the Spectral Terrain watchdog at :7340 before executing.
+    // WATCHDOG_URL / WATCHDOG_ENFORCE env vars control the endpoint and mode.
     let finalResponse: string | null = null;
 
     if (!retrieval.silenced && retrieval.sourceTexts.length > 0) {

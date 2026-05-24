@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "description": "TGIL domain routing table — domain → processor → collection → receptacle",
+  "domains": {
+    "legal-corpus": {
+      "processor": "laplacian-768",
+      "collection": "legal-heatmap",
+      "qdrant": "http://100.113.215.46:6333",
+      "embed_model": "nomic-embed-text",
+      "dims": 768,
+      "receptacle": "legal_retrieve",
+      "role": "legal",
+      "note": "Alabama Code + StackExchange/Gutenberg legal. Full statute text in payload."
+    },
+    "medical-corpus": {
+      "processor": "simhash-128",
+      "collection": "vault",
+      "index": "brain/vault/index.json",
+      "qdrant": "http://100.113.215.46:6333",
+      "qdrant_collection": "medical-heatmap",
+      "embed_model": "nomic-embed-text",
+      "dims": 768,
+      "receptacle": "vault_retrieve",
+      "role": "medical",
+      "note": "MedlinePlus 33,685 shards. SimHash-128 local index + Qdrant backup."
+    },
+    "repo-husk": {
+      "processor": "simhash-768",
+      "collection": "husk-{repo_name}",
+      "qdrant": "http://100.113.215.46:6333",
+      "embed_model": "nomic-embed-text",
+      "dims": 768,
+      "receptacle": "pattern_scan",
+      "role": "security",
+      "ingest_script": "scripts/ingest_husk.py",
+      "note": "Any codebase. Run ingest_husk.py --repo /path --name {repo_name} to add."
+    },
+    "roblox-luau": {
+      "processor": "temporal-3072",
+      "collection": "spectral-heatmap",
+      "qdrant": "http://100.113.215.46:6333",
+      "embed_model": "mxbai-embed-large",
+      "dims": 3072,
+      "receptacle": "terrain_query",
+      "role": "external",
+      "note": "3072-D temporal concat [v_t-1|v_t|v_t+1]. Handled by spectral-terrain engine."
+    },
+    "finance-crypto": {
+      "processor": "temporal-3072",
+      "collection": "spectral-heatmap",
+      "qdrant": "http://100.113.215.46:6333",
+      "embed_model": "mxbai-embed-large",
+      "dims": 3072,
+      "receptacle": "terrain_query",
+      "role": "external",
+      "note": "Time-sensitive financial corpus. Liquidity, DeFi, blockchain. Same engine as roblox-luau."
+    },
+    "property-data": {
+      "processor": "eve-v2-gat-3072",
+      "collection": "hydra-unclaimed",
+      "qdrant": "http://100.113.215.46:6333",
+      "dims": 3072,
+      "receptacle": "terrain_query",
+      "role": "external",
+      "note": "Eve v2 GAT graph. property-hydra repo. Not yet wired."
+    }
+  }
+}

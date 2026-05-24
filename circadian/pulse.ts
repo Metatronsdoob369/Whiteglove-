@@ -23,14 +23,27 @@ import { ShardCache } from "../brain/cache/shard-cache";
 // Spectral Terrain Layer 4 — circadian hardening loop.
 // Dynamically imported so the pulse degrades gracefully if spectral-terrain
 // is not present in this environment (different deployment context).
+// When it skips, it logs to audit so silence is visible — not hidden.
+
+const TERRAIN_ENGINE_PATH = "/Users/joewales/NODE_OUT_Master/spectral-terrain/engine/circadian.js";
+let _lastTerrainSuccess: number = Date.now();
+const TERRAIN_WARN_AFTER_MS = 24 * 60 * 60 * 1000; // surface warning after 24h without success
+
 async function runTerrainCircadian(): Promise<void> {
   try {
-    const { runCircadian } = await import(
-      "/Users/joewales/NODE_OUT_Master/spectral-terrain/engine/circadian.js"
-    );
+    const { runCircadian } = await import(TERRAIN_ENGINE_PATH);
     await runCircadian();
+    _lastTerrainSuccess = Date.now(); // reset on success
   } catch (err: any) {
-    console.warn(` [PULSE:DREAM] Terrain circadian skipped: ${err.message}`);
+    const skippedMs = Date.now() - _lastTerrainSuccess;
+    if (skippedMs >= TERRAIN_WARN_AFTER_MS) {
+      console.warn(
+        `⚠️  [PULSE:DREAM] Phase 4 DEGRADED: spectral-terrain unreachable for ` +
+        `${Math.round(skippedMs / 3600000)}h — check ${TERRAIN_ENGINE_PATH}`
+      );
+    } else {
+      console.warn(` [PULSE:DREAM] Terrain circadian skipped: ${err.message}`);
+    }
   }
 }
 

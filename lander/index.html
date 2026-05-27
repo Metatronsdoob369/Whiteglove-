@@ -1088,7 +1088,7 @@
       <div class="pack-price"><sup>$</sup>49<span class="period"> one-time</span></div>
       <div class="pack-desc">NIH MedlinePlus January 2025. 9,019 deduplicated chunks. 72.8% dedup rate. Full provenance. Drop the binary + vault alongside your app and query offline.</div>
       <div class="pack-stats">9,019 records · ~5.8M tokens · 238ms retrieval</div>
-      <a class="pack-cta" href="#">Get Medical Pack</a>
+      <a class="pack-cta" href="query.html">Try the Vault →</a>
     </div>
 
     <div class="pack">
@@ -1322,10 +1322,10 @@
     showSpinner();
 
     var t0 = performance.now();
-    fetch(API + '/query', {
+    fetch(API + '/medical/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: q, role: 'medical' }),
+      body: JSON.stringify({ query: q, top_k: 3 }),
     })
     .then(function(res) {
       if (!res.ok) throw new Error('status ' + res.status);
@@ -1333,14 +1333,18 @@
     })
     .then(function(data) {
       var latency = Math.round(performance.now() - t0);
-      if (data.silenced) {
+      if (data.silenced || !data.results || !data.results.length) {
         showSilenced(latency);
       } else {
+        var top = data.results[0];
+        var cites = data.results.map(function(r) {
+          return { shardId: r.citation, hammingRatio: r.hamming_ratio, text: r.text };
+        });
         showAnswer(
-          data.answer || (data.sourceTexts && data.sourceTexts[0]) || '(no answer returned)',
-          data.citations,
+          top.text || '(no text returned)',
+          cites,
           latency,
-          data.metrics && data.metrics.shardsEvaluated
+          data.meta && data.meta.shards_total
         );
       }
     })

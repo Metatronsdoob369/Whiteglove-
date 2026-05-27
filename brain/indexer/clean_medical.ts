@@ -15,7 +15,7 @@ function stripHtml(html: string): string {
 }
 
 async function processMedical() {
-    console.log("🧼 [HUSK] Cleaning Medical Data...");
+    console.log(" [HUSK] Cleaning Medical Data...");
     
     if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     

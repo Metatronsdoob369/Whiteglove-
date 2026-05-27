@@ -2,7 +2,7 @@ import { LandmarkOrchestrator } from './brain/landmark-orchestrator';
 import path from 'path';
 
 async function testMedical() {
-    console.log("🏥 [ORCHESTRATOR] Initializing Medical Intelligence Core...");
+    console.log(" [ORCHESTRATOR] Initializing Medical Intelligence Core...");
     
     // Create orchestrator pointing to medical data
     const orchestrator = new LandmarkOrchestrator({
@@ -18,7 +18,7 @@ async function testMedical() {
     ];
 
     for (const q of queries) {
-        console.log(`\n🔍 Query: "${q}"`);
+        console.log(`\n Query: "${q}"`);
         const result = await orchestrator.query(q);
         
         console.log(`\n═══════════════════════════════════════════════════`);
@@ -30,7 +30,7 @@ async function testMedical() {
         console.log(`  TOPOLOGICAL LANDMARKS (Citations)`);
         console.log(`───────────────────────────────────────────────────`);
         result.citations.forEach((c: any) => {
-            console.log(`  📍 ${c.shardId} [Hamming: ${c.hammingRatio.toFixed(4)}] - ${c.source}`);
+            console.log(`   ${c.shardId} [Hamming: ${c.hammingRatio.toFixed(4)}] - ${c.source}`);
             console.log(`     "${c.preview}..."`);
         });
 

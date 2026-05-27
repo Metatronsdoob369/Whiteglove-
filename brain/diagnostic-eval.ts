@@ -1,7 +1,7 @@
 import { LandmarkOrchestrator } from './landmark-orchestrator';
 
 async function runBenchmark() {
-    console.log("🏥 [GOVERNANCE] Starting Fine-Tuning Obsolescence Benchmark...");
+    console.log(" [GOVERNANCE] Starting Fine-Tuning Obsolescence Benchmark...");
     
     const orchestrator = new LandmarkOrchestrator({
         shardDir: "/home/throttleneck-15/.openclaw/workspace/mnt/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk/brain/shards/medical_clean",
@@ -28,14 +28,14 @@ async function runBenchmark() {
         Focus on identifying the highest-heat landmarks for 'meningococcal sepsis' vs 'viral meningitis'.
     `;
 
-    console.log("🧠 [HUSK] Reasoning through complex topology...");
+    console.log(" [HUSK] Reasoning through complex topology...");
     const result = await orchestrator.query(complexCase);
 
-    console.log("\n🔬 [DIAGNOSTIC RESULT]");
+    console.log("\n [DIAGNOSTIC RESULT]");
     console.log("--------------------------------------------------");
     console.log(result.answer);
     
-    console.log("\n📚 [EVIDENCE_CHAIN]");
+    console.log("\n [EVIDENCE_CHAIN]");
     result.citations.forEach(c => {
         console.log(`- ${c.shardId} [Hamming: ${c.hammingRatio}]: ${c.source}`);
     });

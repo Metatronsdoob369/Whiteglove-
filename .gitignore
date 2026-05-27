@@ -12,3 +12,25 @@ tests/.tmp/
 
 # Contains hardcoded auth keys — never commit
 brain/spectral/pod_bootstrap.sh
+.codersinflow
+.vscode
+node_modules
+.venv
+.codex
+out
+dist
+*.vsix
+.claude
+CLAUDE.md
+.git
+*.tmp
+__pycache__
+*.pyc
+.env.local
+.next
+.github
+.kudosflow/
+._*
+graphify-out/
+weppy-project-sync/
+docs/artifacts/*.code-workspace

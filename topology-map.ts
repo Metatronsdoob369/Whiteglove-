@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 async function visualizeTopology() {
-    console.log("🗺️ [HUSK] Generating Topological Heat Map...");
+    console.log("️ [HUSK] Generating Topological Heat Map...");
     
     const orchestrator = new LandmarkOrchestrator({
         shardDir: "/Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk/brain/shards/medical_clean"
@@ -22,13 +22,13 @@ async function visualizeTopology() {
     const totalShards = orchestrator.diagnostics().indexSize;
     const sampleIndices = Array.from({length: sampleSize}, () => Math.floor(Math.random() * totalShards));
     
-    console.log(`\n📡 [RESONANCE LOG] Scanning ${sampleSize} Landmark clusters...\n`);
+    console.log(`\n [RESONANCE LOG] Scanning ${sampleSize} Landmark clusters...\n`);
     
     for (const idx of sampleIndices) {
         const center = orchestrator.getIndexEntry(idx);
         if (!center) continue;
 
-        console.log(`📍 CENTER: ${center.shardId} | "${center.title}"`);
+        console.log(` CENTER: ${center.shardId} | "${center.title}"`);
         
         // Find closest neighbors in the entire index
         const neighbors = orchestrator.findNeighbors(center.signature, 4);
@@ -36,7 +36,7 @@ async function visualizeTopology() {
         neighbors.forEach(n => {
             const matchScore = (1 - n.hammingRatio) * 100;
             const barWidth = Math.floor(matchScore / 5);
-            const bar = "💎".repeat(barWidth);
+            const bar = "".repeat(barWidth);
             console.log(`   ${matchScore.toFixed(1)}% [${bar.padEnd(20)}] -> ${n.shardId} | "${n.title}"`);
         });
         console.log("");

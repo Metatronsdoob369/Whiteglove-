@@ -4,3 +4,6 @@
  */
 
 export { MedicalRole } from "./medical";
+export { LegalRole } from "./legal";
+export { BlueTeamRole } from "./blue-team";
+export { RedTeamRole } from "./red-team";

@@ -219,3 +219,9 @@ Every query returns a `QueryResult`:
 | `qwen2.5-coder:7b` pulled | Default inference model — swap in config |
 
 No cloud. No API keys. No internet connection required.
+
+---
+
+## Vision — TGIL
+
+See [`TGIL_VISION.md`](/Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk/TGIL_VISION.md) for the long-range architectural intent behind this system.

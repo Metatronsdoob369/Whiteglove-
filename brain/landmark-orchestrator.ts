@@ -16,6 +16,7 @@
 import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
+import * as crypto from "crypto";
 import { SimHashDriftGuard, type DriftResult } from "./indexer/simhash-guard";
 import { ShardCache, type CachedShard } from "./cache/shard-cache";
 
@@ -42,6 +43,10 @@ export interface OrchestratorConfig {
   maxResponseTokens: number;
   /** LFU cache capacity */
   cacheCapacity: number;
+  /** REFRAG top-k pre-filter: keep only this many candidates after
+   *  the Hamming scan before threshold filtering. O(N) scan + O(k log k)
+   *  sort instead of O(N log N) full sort. Default: 256 */
+  refragK: number;
 }
 
 const DEFAULT_CONFIG: OrchestratorConfig = {
@@ -52,7 +57,8 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   queryThreshold: 0.45,        // Calibrated: query-to-shard retrieval (empirical)
   maxContextShards: 3,
   maxResponseTokens: 200,
-  cacheCapacity: 500
+  cacheCapacity: 500,
+  refragK: 256                 // REFRAG: top-k pre-filter — O(N) scan, O(k log k) sort
 };
 
 // ─── Shard Index Entry ───────────────────────────────────────────
@@ -136,7 +142,7 @@ export class LandmarkOrchestrator {
       indexedCount: this.indexedCount
     };
     await fs.promises.writeFile(filePath, JSON.stringify(data));
-    console.log(`💾 [HUSK] Index persisted to ${filePath}`);
+    console.log(` [HUSK] Index persisted to ${filePath}`);
   }
 
   async loadIndex(filePath: string) {
@@ -159,7 +165,7 @@ export class LandmarkOrchestrator {
     this.indexedCount = this.index.length;
     this.initialized = true;
     this.rebalanceHotBuffer();
-    console.log(`🔋 [HUSK] Index restored: ${this.indexedCount} landmarks`);
+    console.log(` [HUSK] Index restored: ${this.indexedCount} landmarks`);
     return true;
   }
 
@@ -182,7 +188,7 @@ export class LandmarkOrchestrator {
       .filter((f: string) => f.endsWith(".json"))
       .sort();
 
-    console.log(`💎 [ORCHESTRATOR] Building index for ${files.length} shards...`);
+    console.log(` [ORCHESTRATOR] Building index for ${files.length} shards...`);
 
     let processed = 0;
     let skipped = 0;
@@ -239,7 +245,7 @@ export class LandmarkOrchestrator {
     this.indexedCount = this.index.length;
     this.rebalanceHotBuffer();
     const elapsed = Date.now() - startMs;
-    console.log(`💎 [ORCHESTRATOR] Index built: ${this.indexedCount} active shards (${skipped} skipped) in ${elapsed}ms`);
+    console.log(` [ORCHESTRATOR] Index built: ${this.indexedCount} active shards (${skipped} skipped) in ${elapsed}ms`);
   }
 
   private rebalanceHotBuffer() {
@@ -251,7 +257,7 @@ export class LandmarkOrchestrator {
         this.hotRingBuffer.set(sorted[i].shardId, sorted[i]);
       }
     }
-    console.log(`🔥 [HUSK] Hot Buffer Rebalanced: ${this.hotRingBuffer.size} critical landmarks pinned.`);
+    console.log(` [HUSK] Hot Buffer Rebalanced: ${this.hotRingBuffer.size} critical landmarks pinned.`);
   }
 
   private async finishRetrieval(selected: any[], totalStart: number, indexStart: number): Promise<QueryResult> {
@@ -260,17 +266,18 @@ export class LandmarkOrchestrator {
     const contextShards: any[] = [];
 
     for (const { entry } of selected) {
-      let shard = this.cache.get(entry.shardId);
+      const cacheKey = this.blake2bCacheKey(entry.shardId);
+      let shard = this.cache.get(cacheKey);
       if (!shard) {
         cacheMisses++;
         const filePath = path.join(this.config.shardDir, `${entry.shardId}.json`);
         if (fs.existsSync(filePath)) {
           const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-          shard = { id: raw.id, content: raw.content, source: raw.source };
+          shard = { id: cacheKey, content: raw.content, source: raw.source };
           this.cache.put(shard);
         }
       }
-      if (shard) contextShards.push(shard);
+      if (shard) contextShards.push({ id: entry.shardId, content: shard.content, source: shard.source });
     }
 
     const citations = selected.map(r => ({
@@ -301,6 +308,19 @@ export class LandmarkOrchestrator {
       silenced: false,
       mode: "retrieve"
     };
+  }
+
+  /**
+   * BLAKE2b-512 deterministic cache key for a shard.
+   * Salt "RFGv1" (REFRAG v1) provides domain separation.
+   * Same shardId → same key across sessions = amortized O(1) cache hit rate.
+   */
+  private blake2bCacheKey(shardId: string): string {
+    return crypto
+      .createHash("blake2b512")
+      .update(`RFGv1|${shardId}`)
+      .digest("hex")
+      .slice(0, 64); // 256-bit truncation — still collision-resistant at this corpus size
   }
 
   /**
@@ -356,21 +376,45 @@ export class LandmarkOrchestrator {
       }
     }
 
-    // ─── Step 2: Rank shards by Hamming distance ────────────────
-    const ranked: Array<{ entry: IndexEntry; drift: DriftResult }> = [];
+    // ─── Step 2: REFRAG top-k pre-filter ────────────────────────
+    // O(N) scan keeping a running top-k heap by Hamming ratio.
+    // With 33k+ shards, this avoids O(N log N) full sort —
+    // we only sort the k=256 finalists.
+    const k = this.config.refragK;
+    const topK: Array<{ entry: IndexEntry; drift: DriftResult }> = [];
+    let worstInTopK = 1.0; // highest hammingRatio currently in top-k
 
     for (const entry of this.index) {
       const drift = this.queryGuard.evaluateDrift(querySignature, entry.signature);
-      ranked.push({ entry, drift });
+      if (topK.length < k) {
+        topK.push({ entry, drift });
+        if (drift.hammingRatio > worstInTopK || topK.length === 1) {
+          worstInTopK = topK.reduce((max, c) => c.drift.hammingRatio > max ? c.drift.hammingRatio : max, 0);
+        }
+      } else if (drift.hammingRatio < worstInTopK) {
+        // Find and replace the worst entry
+        let worstIdx = 0;
+        for (let i = 1; i < topK.length; i++) {
+          if (topK[i].drift.hammingRatio > topK[worstIdx].drift.hammingRatio) worstIdx = i;
+        }
+        topK[worstIdx] = { entry, drift };
+        worstInTopK = topK[worstIdx].drift.hammingRatio;
+        // Recalculate worstInTopK from scratch (only when we evict)
+        for (const c of topK) {
+          if (c.drift.hammingRatio > worstInTopK) worstInTopK = c.drift.hammingRatio;
+        }
+      }
     }
 
-    // Sort by Hamming ratio ascending (closest first)
-    ranked.sort((a, b) => a.drift.hammingRatio - b.drift.hammingRatio);
+    // Sort the k finalists ascending (closest first)
+    topK.sort((a, b) => a.drift.hammingRatio - b.drift.hammingRatio);
+
+    console.log(` [REFRAG] Pre-filter: ${k} of ${this.index.length} shards selected for threshold evaluation`);
 
     const indexLookupMs = Date.now() - indexStart;
 
     // ─── Step 3: Select top-N within threshold ──────────────────
-    const selected = ranked
+    const selected = topK
       .filter(r => r.drift.stable) // Below calibrated threshold
       .slice(0, this.config.maxContextShards);
 
@@ -385,7 +429,7 @@ export class LandmarkOrchestrator {
           cacheMisses: 0,
           inferenceMs: 0,
           totalMs: Date.now() - totalStart,
-          shardsEvaluated: this.index.length,
+          shardsEvaluated: this.index.length,  // full N scanned
           shardsSelected: 0
         },
         silenced: true,
@@ -393,25 +437,33 @@ export class LandmarkOrchestrator {
       };
     }
 
-    // ─── Step 4: Load shard content (cache or disk) ─────────────
+    // ─── Step 4: Load shard content (BLAKE2b-keyed cache or disk) ──
+    // Cache key = BLAKE2b-512 of "RFGv1|{shardId}" — deterministic
+    // across sessions, collision-resistant, amortized O(1) for repeated queries.
     let cacheMisses = 0;
     const contextShards: CachedShard[] = [];
 
     for (const { entry } of selected) {
-      let shard = this.cache.get(entry.shardId);
+      const cacheKey = this.blake2bCacheKey(entry.shardId);
+      let shard = this.cache.get(cacheKey);
 
       if (!shard) {
         cacheMisses++;
         const filePath = path.join(this.config.shardDir, `${entry.shardId}.json`);
         if (fs.existsSync(filePath)) {
           const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-          shard = { id: raw.id, content: raw.content, source: raw.source };
+          shard = { id: cacheKey, content: raw.content, source: raw.source };
           this.cache.put(shard);
         }
       }
 
       if (shard) {
-        contextShards.push(shard);
+        // Re-attach the original shardId/source for citation output
+        contextShards.push({
+          id: entry.shardId,
+          content: shard.content,
+          source: shard.source
+        });
       }
     }
 
@@ -438,8 +490,8 @@ export class LandmarkOrchestrator {
         cacheMisses,
         inferenceMs: 0,
         totalMs: Date.now() - totalStart,
-        shardsEvaluated: this.index.length,
-        shardsSelected: selected.length
+        shardsEvaluated: this.index.length,  // full corpus scanned (O(N) Hamming)
+        shardsSelected: selected.length       // survivors after REFRAG k=256 + threshold
       },
       silenced: false,
       mode: "retrieve"

@@ -17,6 +17,7 @@ import fs from "fs";
 import { AgentLoop } from "../agent/loop/agent-loop";
 import { buildDefaultRegistry } from "../agent/tool-registry";
 import type { RoleContract } from "../agent/types";
+import { routeLegal } from "./legal";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 4880;
 const DEFAULT_VAULT_INDEX = process.env.WG_VAULT_INDEX
@@ -100,6 +101,19 @@ async function router(
   const method = req.method ?? "GET";
 
   res.setHeader("Content-Type", "application/json");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // /legal/* — Qdrant-backed legal retrieval
+  const handled = await routeLegal(req, res, url.pathname, method);
+  if (handled) return;
 
   // GET /health
   if (method === "GET" && url.pathname === "/health") {
@@ -217,7 +231,9 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\nWhiteGlove API — port ${PORT}`);
-  console.log(`  POST /query          — run a sovereign retrieval query`);
+  console.log(`  POST /query          — sovereign retrieval (SimHash/file shards)`);
   console.log(`  GET  /health         — liveness check`);
-  console.log(`  GET  /payload/:role  — fetch SYSTEM_DIRECTIVE for a sector\n`);
+  console.log(`  GET  /payload/:role  — SYSTEM_DIRECTIVE for a sector`);
+  console.log(`  GET  /legal/health   — Pi Qdrant + Ollama connectivity check`);
+  console.log(`  POST /legal/query    — legal corpus search (Qdrant 3072-D)\n`);
 });

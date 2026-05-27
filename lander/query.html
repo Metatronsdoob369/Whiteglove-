@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WhiteGlove — Query Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg:       #050608;
+  --bg-card:  #0c0d10;
+  --bg-input: #111317;
+  --ink:      #f0f0ef;
+  --ink-2:    #a0a3a8;
+  --ink-3:    #52555c;
+  --ink-4:    #1e2024;
+  --power:    #8effa6;
+  --power-s:  rgba(142,255,166,.12);
+  --power-g:  rgba(142,255,166,.28);
+  --copper:   #c97a4a;
+  --copper-s: rgba(201,122,74,.12);
+  --copper-g: rgba(201,122,74,.45);
+  --red:      #ff6b6b;
+  --red-s:    rgba(255,107,107,.10);
+  --hero:     'Syne', system-ui, sans-serif;
+  --body:     'Inter', system-ui, sans-serif;
+  --mono:     'JetBrains Mono', ui-monospace, monospace;
+  --radius:   10px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* ── Layout ── */
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: clamp(20px,4vw,48px) clamp(16px,4vw,40px);
+  gap: 0;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--ink-4);
+  margin-bottom: 36px;
+}
+.logo {
+  font-family: var(--hero);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.logo span { color: var(--copper); }
+.sovereign-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: .58rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--power);
+  border: 1px solid rgba(142,255,166,.2);
+  border-radius: 99px;
+  padding: 5px 12px;
+  background: var(--power-s);
+}
+.sovereign-badge::before {
+  content: '';
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--power);
+  box-shadow: 0 0 6px var(--power);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+/* ── Stat bar ── */
+.stat-bar {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--ink-4);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 18px;
+  border-right: 1px solid var(--ink-4);
+}
+.stat:last-child { border-right: none; }
+.stat-val {
+  font-family: var(--mono);
+  font-size: .95rem;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -.01em;
+}
+.stat-val.green { color: var(--power); }
+.stat-val.copper { color: var(--copper); }
+.stat-label {
+  font-family: var(--mono);
+  font-size: .54rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ── Main ── */
+main { display: flex; flex-direction: column; gap: 28px; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .62rem;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+h1 {
+  font-family: var(--hero);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink);
+}
+h1 em { font-style: normal; color: var(--copper); }
+.sub {
+  margin-top: 10px;
+  font-size: .88rem;
+  color: var(--ink-2);
+  line-height: 1.6;
+  max-width: 560px;
+}
+
+/* ── Domain Selector ── */
+.domain-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.domain-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-4);
+  background: var(--bg-card);
+  color: var(--ink-2);
+  font-family: var(--body);
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .18s, color .18s, background .18s;
+  user-select: none;
+}
+.domain-btn:hover { border-color: var(--ink-3); color: var(--ink); }
+.domain-btn.active[data-domain="medical"] {
+  border-color: var(--power);
+  background: var(--power-s);
+  color: var(--power);
+}
+.domain-btn.active[data-domain="legal"] {
+  border-color: var(--copper);
+  background: var(--copper-s);
+  color: var(--copper);
+}
+.domain-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .7;
+}
+.domain-meta {
+  font-family: var(--mono);
+  font-size: .58rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 6px;
+  padding-left: 2px;
+  min-height: 16px;
+}
+
+/* ── Query Form ── */
+.query-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+textarea#qInput {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--ink-4);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: .92rem;
+  line-height: 1.5;
+  padding: 13px 16px;
+  resize: none;
+  min-height: 64px;
+  max-height: 160px;
+  outline: none;
+  transition: border-color .18s;
+}
+textarea#qInput:focus { border-color: var(--ink-3); }
+textarea#qInput::placeholder { color: var(--ink-3); }
+button#qSubmit {
+  padding: 0 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-4);
+  background: var(--bg-card);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: .65rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .18s, background .18s, color .18s;
+  min-width: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+button#qSubmit:hover:not(:disabled) { border-color: var(--ink-2); background: var(--ink-4); }
+button#qSubmit:disabled { opacity: .38; cursor: not-allowed; }
+button#qSubmit.medical-active:not(:disabled):hover { border-color: var(--power); color: var(--power); }
+button#qSubmit.legal-active:not(:disabled):hover   { border-color: var(--copper); color: var(--copper); }
+
+/* ── Spinner ── */
+.spin {
+  width: 12px; height: 12px;
+  border: 2px solid var(--ink-3);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  display: none;
+}
+.loading .spin { display: block; }
+.loading .btn-label { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Results ── */
+#results { display: flex; flex-direction: column; gap: 14px; min-height: 40px; }
+
+.result-card {
+  background: var(--bg-card);
+  border: 1px solid var(--ink-4);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: fadeUp .25s ease both;
+}
+.result-card:hover { border-color: var(--ink-3); }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--ink-4);
+}
+.card-rank {
+  font-family: var(--mono);
+  font-size: .56rem;
+  letter-spacing: .2em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.card-badges {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.badge {
+  font-family: var(--mono);
+  font-size: .53rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.badge.settled  { color: var(--power);  border-color: rgba(142,255,166,.3); background: var(--power-s); }
+.badge.active   { color: #7eb8ff;       border-color: rgba(126,184,255,.3); background: rgba(126,184,255,.08); }
+.badge.contested{ color: var(--copper); border-color: rgba(201,122,74,.3);  background: var(--copper-s); }
+.badge.noise    { color: var(--ink-3);  border-color: var(--ink-4);         background: transparent; }
+.badge.conf     { color: var(--ink-2);  border-color: var(--ink-4);         background: transparent; }
+.card-source {
+  font-family: var(--mono);
+  font-size: .56rem;
+  color: var(--ink-3);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  flex: 1;
+  text-align: right;
+}
+.card-title {
+  padding: 11px 16px 3px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.card-citation {
+  padding: 0 16px 8px;
+  font-family: var(--mono);
+  font-size: .56rem;
+  letter-spacing: .1em;
+  color: var(--copper);
+  text-transform: uppercase;
+}
+.card-body {
+  padding: 4px 16px 14px;
+  font-size: .82rem;
+  color: var(--ink-2);
+  line-height: 1.65;
+}
+
+/* ── State boxes ── */
+.state-box {
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  border: 1px solid;
+  font-size: .84rem;
+  line-height: 1.6;
+}
+.state-box.silenced { background: var(--copper-s); border-color: rgba(201,122,74,.25); color: var(--copper); }
+.state-box.err      { background: var(--red-s);    border-color: rgba(255,107,107,.2); color: var(--red); }
+.state-box strong   { display: block; margin-bottom: 4px; font-size: .78rem; letter-spacing: .06em; }
+
+/* ── Latency bar ── */
+.latency-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: .58rem;
+  letter-spacing: .15em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.latency-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--power); }
+.latency-dot.legal { background: var(--copper); }
+
+/* ── Footer ── */
+footer {
+  padding-top: 36px;
+  border-top: 1px solid var(--ink-4);
+  margin-top: 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: .56rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+footer a { color: var(--ink-3); text-decoration: none; }
+footer a:hover { color: var(--ink-2); }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .stat-bar { display: grid; grid-template-columns: 1fr 1fr; }
+  .stat:nth-child(2) { border-right: none; }
+  .stat:nth-child(3) { border-top: 1px solid var(--ink-4); border-right: 1px solid var(--ink-4); }
+  .stat:last-child   { border-top: 1px solid var(--ink-4); }
+}
+@media (max-width: 480px) {
+  .input-row { flex-direction: column; }
+  button#qSubmit { width: 100%; padding: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <a class="logo" href="index.html">WHITE<span>GLOVE</span></a>
+    <span class="sovereign-badge">Zero Cloud</span>
+  </header>
+
+  <!-- Stat bar -->
+  <div class="stat-bar">
+    <div class="stat">
+      <span class="stat-val green">33,685</span>
+      <span class="stat-label">Medical shards</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val copper" id="legalCount">27,689</span>
+      <span class="stat-label">Legal vectors</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val green">&lt;100ms</span>
+      <span class="stat-label">Medical retrieval</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val">0</span>
+      <span class="stat-label">Cloud API calls</span>
+    </div>
+  </div>
+
+  <main>
+    <div>
+      <p class="eyebrow">Sovereign Retrieval</p>
+      <h1>Ask the <em>Vault</em></h1>
+      <p class="sub">Faith-Less retrieval — source-cited answers from sealed domain knowledge. No hallucination. If it isn't in the vault, WhiteGlove stays silent.</p>
+    </div>
+
+    <!-- Domain selector -->
+    <div>
+      <p class="eyebrow" style="margin-bottom:12px">Domain</p>
+      <div class="domain-row">
+        <button class="domain-btn active" data-domain="medical" type="button">
+          <span class="domain-dot"></span>Medical
+        </button>
+        <button class="domain-btn" data-domain="legal" type="button">
+          <span class="domain-dot"></span>Legal
+        </button>
+      </div>
+      <p class="domain-meta" id="domainMeta">MedlinePlus 2025-01 · 33,685 shards · SimHash-128 · offline</p>
+    </div>
+
+    <!-- Query form -->
+    <form class="query-wrap" id="qForm" autocomplete="off">
+      <div class="input-row">
+        <textarea id="qInput" name="q" rows="2"
+          placeholder="What is A1C and what does it indicate?"
+          aria-label="Query"></textarea>
+        <button id="qSubmit" type="submit" class="medical-active">
+          <span class="spin"></span>
+          <span class="btn-label">Query</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Results -->
+    <div id="results"></div>
+  </main>
+
+  <footer>
+    <span>WhiteGlove &mdash; Zero-cloud sovereign retrieval</span>
+    <span><a href="index.html">← Back to lander</a></span>
+  </footer>
+
+</div>
+<script>
+(function () {
+  'use strict';
+
+  var API = 'http://127.0.0.1:4880';
+
+  var domain  = 'medical';
+  var form    = document.getElementById('qForm');
+  var input   = document.getElementById('qInput');
+  var submit  = document.getElementById('qSubmit');
+  var results = document.getElementById('results');
+  var metaEl  = document.getElementById('domainMeta');
+  var countEl = document.getElementById('legalCount');
+
+  var DOMAIN_META = {
+    medical: 'MedlinePlus 2025-01 · 33,685 shards · SimHash-128 · offline',
+    legal:   'Alabama Code 1975–2026 + Law StackExchange · 768-D · Qdrant',
+  };
+
+  var PLACEHOLDERS = {
+    medical: 'What is A1C and what does it indicate?',
+    legal:   'What is the penalty for wire fraud in Alabama?',
+  };
+
+  // ── Fetch legal count from collection ─────────────────────────────
+  fetch(API + '/health')
+    .then(function (r) { return r.json(); })
+    .then(function () {
+      // API is up — fetch live legal count
+      return fetch('http://100.113.215.46:6333/collections/legal-heatmap');
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var count = d && d.result && d.result.points_count;
+      if (count) countEl.textContent = Number(count).toLocaleString();
+    })
+    .catch(function () { /* leave static value */ });
+
+  // ── Domain toggle ──────────────────────────────────────────────
+  document.querySelectorAll('.domain-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      domain = btn.dataset.domain;
+      document.querySelectorAll('.domain-btn').forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+      metaEl.textContent = DOMAIN_META[domain] || '';
+      input.placeholder  = PLACEHOLDERS[domain] || '';
+      submit.className   = domain === 'medical' ? 'medical-active' : 'legal-active';
+      clearResults();
+    });
+  });
+
+  // ── Helpers ────────────────────────────────────────────────────
+  function t(text) { return document.createTextNode(String(text)); }
+  function el(tag, cls) {
+    var d = document.createElement(tag);
+    if (cls) d.className = cls;
+    return d;
+  }
+  function clearResults() {
+    while (results.firstChild) results.removeChild(results.firstChild);
+  }
+  function setLoading(on) {
+    submit.disabled = on;
+    submit.classList.toggle('loading', on);
+  }
+  function badge(text, cls) {
+    var b = el('span', 'badge ' + (cls || ''));
+    b.appendChild(t(text));
+    return b;
+  }
+  function bandClass(band) {
+    return { settled: 'settled', active: 'active', contested: 'contested', noise: 'noise' }[band] || 'noise';
+  }
+
+  // ── Derive a clean title from hit payload ─────────────────────
+  function resolveTitle(hit) {
+    // Legal: prefer real title over shard ID
+    var raw = hit.title || '';
+    // If it looks like a raw shard ID (law_chunk_XXXXXX, gut_chunk_XXXXXX), use citation
+    if (/^(law|gut|al)_chunk_\d+$/.test(raw) || !raw) {
+      return hit.citation || hit.shard_id || '';
+    }
+    // Alabama shards have titles like "Ala. Code §13A-1-1 — Short Title"
+    // MedlinePlus shards have titles like "Diabetes: MedlinePlus Medical Encyclopedia"
+    return raw;
+  }
+
+  // ── Derive clean source line ──────────────────────────────────
+  function resolveSource(hit) {
+    var src = hit.source || hit.path || '';
+    var sid = hit.shard_id || hit.citation || '';
+    // Alabama: source = "Alabama Code of 1975", shard_id = "al_13A_1_1_000"
+    // Strip redundant path repetitions
+    if (src === hit.path && src === hit.source) return src;
+    return src || sid;
+  }
+
+  // ── Render helpers ─────────────────────────────────────────────
+  function renderLatency(ms, dom) {
+    var row = el('div', 'latency-row');
+    var dot = el('span', 'latency-dot' + (dom === 'legal' ? ' legal' : ''));
+    row.appendChild(dot);
+    row.appendChild(t(ms + 'ms · vault retrieved · 0 cloud calls'));
+    return row;
+  }
+
+  function renderCard(hit, rank) {
+    var card = el('div', 'result-card');
+    card.style.animationDelay = (rank * 0.05) + 's';
+
+    // ── Head: rank | badges | source ──
+    var head = el('div', 'card-head');
+
+    var rankEl = el('span', 'card-rank');
+    rankEl.appendChild(t('#' + rank));
+    head.appendChild(rankEl);
+
+    var badges = el('div', 'card-badges');
+    var band = hit.spectral_band || hit.band || 'active';
+    badges.appendChild(badge(band, bandClass(band)));
+    var conf = hit.confidence;
+    if (typeof conf === 'number') {
+      badges.appendChild(badge(Math.round(conf * 100) + '%', 'conf'));
+    } else if (typeof conf === 'string' && conf !== 'medium' && conf !== 'low' && conf !== 'high') {
+      badges.appendChild(badge(conf, 'conf'));
+    }
+    head.appendChild(badges);
+
+    var srcEl = el('span', 'card-source');
+    srcEl.appendChild(t(resolveSource(hit)));
+    head.appendChild(srcEl);
+
+    card.appendChild(head);
+
+    // ── Title ──
+    var title = resolveTitle(hit);
+    if (title) {
+      var titleEl = el('p', 'card-title');
+      titleEl.appendChild(t(title));
+      card.appendChild(titleEl);
+    }
+
+    // ── Citation line (copper, monospace) ──
+    var citStr = hit.citation || hit.shard_id || '';
+    if (citStr && citStr !== title) {
+      var citEl = el('p', 'card-citation');
+      citEl.appendChild(t(citStr));
+      card.appendChild(citEl);
+    }
+
+    // ── Body text ──
+    var raw = String(hit.text || hit.excerpt || '').trim();
+    if (raw) {
+      var bodyEl = el('p', 'card-body');
+      bodyEl.appendChild(t(raw.slice(0, 560) + (raw.length > 560 ? '\u2026' : '')));
+      card.appendChild(bodyEl);
+    }
+
+    return card;
+  }
+
+  function renderSilenced(latency) {
+    clearResults();
+    var box = el('div', 'state-box silenced');
+    var strong = el('strong'); strong.appendChild(t('Silence Gate Active'));
+    box.appendChild(strong);
+    box.appendChild(t('No shard matched with sufficient confidence. WhiteGlove won\u2019t guess \u2014 that\u2019s the architecture.'));
+    results.appendChild(box);
+    results.appendChild(renderLatency(latency, domain));
+  }
+
+  function renderError(latency) {
+    clearResults();
+    var box = el('div', 'state-box err');
+    var strong = el('strong'); strong.appendChild(t('Retrieval failed'));
+    box.appendChild(strong);
+    box.appendChild(t('Could not reach ' + API + '. Ensure the API is running: conda run -n agents uvicorn api.main:app --port 4880'));
+    results.appendChild(box);
+    if (latency) results.appendChild(renderLatency(latency, domain));
+  }
+
+  function renderHits(hits, latency) {
+    clearResults();
+    hits.forEach(function (hit, i) {
+      results.appendChild(renderCard(hit, i + 1));
+    });
+    results.appendChild(renderLatency(latency, domain));
+  }
+
+  // ── Fetch ──────────────────────────────────────────────────────
+  function fetchMedical(q, t0) {
+    return fetch(API + '/medical/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, top_k: 3 }),
+    })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      var latency = Math.round(performance.now() - t0);
+      if (data.silenced || !data.results || !data.results.length) {
+        renderSilenced(latency);
+      } else {
+        renderHits(data.results, latency);
+      }
+    });
+  }
+
+  function fetchLegal(q, t0) {
+    return fetch(API + '/legal/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, top_k: 3 }),
+    })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      var latency = Math.round(performance.now() - t0);
+      var hits = data.results || [];
+      if (!hits.length) {
+        renderSilenced(latency);
+      } else {
+        renderHits(hits, latency);
+      }
+    });
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = input.value.trim();
+    if (!q) return;
+
+    setLoading(true);
+    clearResults();
+
+    var t0      = performance.now();
+    var fetch_fn = domain === 'legal' ? fetchLegal : fetchMedical;
+
+    fetch_fn(q, t0)
+      .catch(function () { renderError(Math.round(performance.now() - t0)); })
+      .finally(function () { setLoading(false); });
+  });
+
+  // Enter to submit (shift+enter = newline)
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.dispatchEvent(new Event('submit'));
+    }
+  });
+
+  // Auto-grow textarea
+  input.addEventListener('input', function () {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  });
+
+})();
+</script>
+</body>
+</html>

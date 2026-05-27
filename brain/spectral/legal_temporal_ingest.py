@@ -355,7 +355,7 @@ def main():
             # Bootstrap T-start on first shard
             if t_start is None:
                 t_start = t_current
-                print(f'🔗 T-start anchored')
+                print(f' T-start anchored')
             else:
                 print(f'', end='')
 

@@ -14,7 +14,7 @@ const SOURCE_FILE = "/Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Hus
 const OUTPUT_DIR = "/Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk/brain/shards/shattered";
 
 async function shatter() {
-    console.log("💎 [HUSK] Starting Spectral Shatter...");
+    console.log(" [HUSK] Starting Spectral Shatter...");
     
     if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
     

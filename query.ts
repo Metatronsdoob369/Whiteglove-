@@ -26,13 +26,13 @@ async function main() {
 
   if (args[0] === "--index-only") {
     await orchestrator.buildIndex();
-    console.log("\n📊 Diagnostics:", orchestrator.diagnostics());
+    console.log("\n Diagnostics:", orchestrator.diagnostics());
     process.exit(0);
   }
 
   if (args[0] === "--diagnostics") {
     await orchestrator.buildIndex();
-    console.log("\n📊 Diagnostics:", JSON.stringify(orchestrator.diagnostics(), null, 2));
+    console.log("\n Diagnostics:", JSON.stringify(orchestrator.diagnostics(), null, 2));
     process.exit(0);
   }
 
@@ -45,15 +45,15 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\n🔍 Query: "${question}"`);
-  console.log(`📋 Mode: ${ragMode ? "RAG (retrieve + infer)" : "FAITH-LESS (pure retrieval)"}\n`);
+  console.log(`\n Query: "${question}"`);
+  console.log(` Mode: ${ragMode ? "RAG (retrieve + infer)" : "FAITH-LESS (pure retrieval)"}\n`);
 
   const result = ragMode
     ? await orchestrator.query(question)
     : await orchestrator.retrieve(question);
 
   if (result.silenced) {
-    console.log("🔇 [FAITH-LESS] No relevant shards found. Agent remains silent.");
+    console.log(" [FAITH-LESS] No relevant shards found. Agent remains silent.");
     console.log(`   Shards evaluated: ${result.metrics.shardsEvaluated}`);
     console.log(`   Index lookup: ${result.metrics.indexLookupMs}ms`);
     return;
@@ -65,7 +65,7 @@ async function main() {
     console.log("  VERIFIED SOURCE MATERIAL");
     console.log("═══════════════════════════════════════════════════");
     for (const src of result.sourceTexts) {
-      console.log(`\n📄 [${src.source} / ${src.shardId}]`);
+      console.log(`\n [${src.source} / ${src.shardId}]`);
       console.log("─".repeat(50));
       console.log(src.fullText);
     }
@@ -79,7 +79,7 @@ async function main() {
   console.log("  CITATIONS");
   console.log("───────────────────────────────────────────────────");
   for (const cite of result.citations) {
-    console.log(`  📄 ${cite.shardId} (${cite.source})`);
+    console.log(`   ${cite.shardId} (${cite.source})`);
     console.log(`     Hamming: ${cite.hammingRatio.toFixed(4)}`);
     console.log(`     Preview: ${cite.contentPreview.slice(0, 80)}...`);
     console.log("");

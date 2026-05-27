@@ -25,7 +25,7 @@ interface ShardPayload {
 }
 
 async function calibrate() {
-  console.log("💎 [CALIBRATION] Loading shards...\n");
+  console.log(" [CALIBRATION] Loading shards...\n");
 
   const guard = new SimHashDriftGuard(); // threshold doesn't matter here — we're measuring
   const files = fs.readdirSync(SHARD_DIR)
@@ -47,7 +47,7 @@ async function calibrate() {
     });
   }
 
-  console.log(`📊 [CALIBRATION] ${signatures.length} shards indexed.\n`);
+  console.log(` [CALIBRATION] ${signatures.length} shards indexed.\n`);
 
   // Compute ALL pairwise Hamming distances
   const distances: number[] = [];
@@ -155,7 +155,7 @@ async function calibrate() {
 
   const reportPath = path.join(SHARD_DIR, "..", "calibration_report.json");
   fs.writeFileSync(reportPath, JSON.stringify(calibrationReport, null, 2));
-  console.log(`\n📄 Report saved to: ${reportPath}`);
+  console.log(`\n Report saved to: ${reportPath}`);
 }
 
 calibrate().catch(console.error);

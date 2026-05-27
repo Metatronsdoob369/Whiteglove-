@@ -10,7 +10,7 @@ import path from 'path';
  */
 
 async function broseidonPulse() {
-    console.log("🔥 [BROSEIDON] 3GHz Spectral Activation Engaged.");
+    console.log(" [BROSEIDON] 3GHz Spectral Activation Engaged.");
     
     // Detect environment and adjust mount points
     // Mac uses /Volumes/ARCHIVE, Pi likely uses /mnt/ARCHIVE or /media/pi/ARCHIVE
@@ -28,7 +28,7 @@ async function broseidonPulse() {
         }
     }
 
-    console.log(`📍 Targeting Shard Directory: ${shardDir}`);
+    console.log(` Targeting Shard Directory: ${shardDir}`);
 
     const orchestrator = new LandmarkOrchestrator({
         shardDir: shardDir,
@@ -37,7 +37,7 @@ async function broseidonPulse() {
         maxContextShards: 5
     });
 
-    console.log("📐 Indexing 15,580 shards into SimHash-128 space...");
+    console.log(" Indexing 15,580 shards into SimHash-128 space...");
     const startMs = Date.now();
     await orchestrator.buildIndex(15580);
     const elapsed = Date.now() - startMs;
@@ -45,7 +45,7 @@ async function broseidonPulse() {
     const stats = orchestrator.diagnostics();
     console.log(`✅ Index Stable. Shards: ${stats.indexSize}`);
     console.log(`⏱️  Index Build Time: ${(elapsed / 1000).toFixed(2)}s`);
-    console.log(`📡 [BROSEIDON] Readiness: DIAMOND-STABLE. Ready for Mission Queries.`);
+    console.log(` [BROSEIDON] Readiness: DIAMOND-STABLE. Ready for Mission Queries.`);
 }
 
 broseidonPulse().catch(console.error);

@@ -10,11 +10,14 @@
 
 import { AgentLoop } from "./loop/agent-loop";
 import { buildDefaultRegistry } from "./tool-registry";
-import { MedicalRole } from "./roles";
+import { MedicalRole, LegalRole, BlueTeamRole, RedTeamRole } from "./roles";
 import type { RoleContract } from "./types";
 
 const ROLES: Record<string, RoleContract> = {
-  medical: MedicalRole
+  medical: MedicalRole,
+  legal: LegalRole,
+  security: BlueTeamRole,
+  "red-team": RedTeamRole,
 };
 
 const DEFAULT_ROLE = "medical";
@@ -75,21 +78,21 @@ ${Object.keys(ROLES).map(r => `  ${r}`).join("\n")}
     process.exit(1);
   }
 
-  console.log(`\n🧠 Role:    ${role.name} [${role.sector}]`);
-  console.log(`🔍 Query:   "${question}"`);
-  console.log(`🔒 Silence: ${role.silencePolicy}\n`);
+  console.log(`\n Role:    ${role.name} [${role.sector}]`);
+  console.log(` Query:   "${question}"`);
+  console.log(` Silence: ${role.silencePolicy}\n`);
 
   const loop = new AgentLoop(registry);
   console.log("⏳ Initializing vault index...");
   await loop.init();
 
-  console.log("💬 Running agent...\n");
+  console.log(" Running agent...\n");
   const result = await loop.run(question, role);
 
   console.log("═".repeat(60));
 
   if (result.silenced) {
-    console.log("🔇 SILENCED — No verified information found in vault.");
+    console.log(" SILENCED — No verified information found in vault.");
     console.log("   The agent stays silent rather than fabricate an answer.");
   } else {
     console.log("  RESPONSE");
@@ -101,7 +104,7 @@ ${Object.keys(ROLES).map(r => `  ${r}`).join("\n")}
     const retrieveStep = result.steps.find(s => s.type === "retrieve");
     if (retrieveStep?.citations) {
       for (const c of retrieveStep.citations) {
-        console.log(`  📄 ${c.shardId} (${c.source})`);
+        console.log(`   ${c.shardId} (${c.source})`);
         console.log(`     Hamming: ${c.hammingRatio.toFixed(4)}`);
         console.log(`     ${c.preview.slice(0, 80)}...`);
       }

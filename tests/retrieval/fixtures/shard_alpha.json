@@ -1,6 +1,6 @@
 {
   "id": "shard_alpha",
   "title": "Alpha Provision",
-  "source": "query_",
+  "source": "legal_fixture_provisions",
   "content": "Alpha protocol requires two signatures for legal escrow release and explicit written consent from both parties."
 }

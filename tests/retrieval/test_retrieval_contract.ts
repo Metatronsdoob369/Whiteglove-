@@ -6,7 +6,13 @@ function assertSilenced(result: QueryResult): void {
   assert.equal(result.mode, "retrieve", "expected retrieve mode");
   assert.equal(result.silenced, true, "expected silenced=true on no-match query");
   assert.equal(result.answer, null, "retrieve mode answer must be null");
-  assert.equal(result.citations.length, 0, "no-match should return zero citations");
+  // Silence carries the closest failed match (PATCHES.md §1) so callers can
+  // see how far the best candidate was from the gate — but never source text.
+  assert.equal(result.citations.length, 1, "silence should carry exactly one closest-miss citation");
+  assert.ok(
+    result.citations[0].hammingRatio > 0,
+    "closest-miss hammingRatio must be above the gate (non-zero distance)"
+  );
   assert.equal(result.sourceTexts.length, 0, "no-match should return zero source texts");
 }
 

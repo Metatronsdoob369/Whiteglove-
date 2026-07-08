@@ -10,5 +10,13 @@ brain/vault/runs/
 .env
 tests/.tmp/
 
+# Silence-harness eval: shards regenerate via shatter-repo.ts; the query
+# corpus must ship despite the global *.jsonl rule; latest-run outputs
+# churn, while named PRE/POST/SWEEP snapshots are committed provenance.
+silence-harness-eval/shards/
+silence-harness-eval/results/results.json
+silence-harness-eval/results/report.md
+!silence-harness-eval/corpus/*.jsonl
+
 # Contains hardcoded auth keys — never commit
 brain/spectral/pod_bootstrap.sh

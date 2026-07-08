@@ -107,3 +107,8 @@ score near-random against the stale signatures.
 - Task 10: build the real query set (~50/class) against the production corpus.
 - Task 11: re-sweep on it and pick the operating threshold with the curve visible.
 - Decide on known-issue #4 (tokenization) — it directly widens the usable band.
+
+## Manifest v3 Dimension Audit
+
+Manifest v3 enforces the dimension rule in code — `auditDimensions()` flags any static pipeline over 768-D. Three are currently hot (legal via LawLibra, and property-data), all because their collections were built at 3072 before the rule was set. The fix is re-ingesting those corpora at low-D, which is refinery work, not app work — and it doesn't block ArbiterOS shipping, because the app talks to LawLibra's seam regardless of the corpus's dimensionality underneath.
+

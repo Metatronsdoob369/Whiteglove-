@@ -5,14 +5,14 @@
     "roblox-luau": {
       "processor": "temporal-concat",
       "collection": "spectral-heatmap",
-      "embed_model": "nomic-embed-text",
+      "embed_model": "mxbai-embed-large",
       "dims": 3072,
       "receptacle": "terrain_query",
       "ingest_script": "ingest:roblox",
       "tools": [
         "terrain_query"
       ],
-      "note": "First proof. Temporal path ONLY valid where sequence = causality. FOLD DISAGREEMENT #1: v2 pipeline.json says embed_model=mxbai-embed-large; the nomic-embed-text above was Claude-inferred [CONFIRM]. v2 likely right — Joe confirms which the Pi actually runs before locking."
+      "note": "First proof. Temporal path ONLY valid where sequence = causality. FOLD DISAGREEMENT #1 RESOLVED (arbitration, PR #26): mxbai-embed-large — both embed models are active on the Pi, but every ingest script hardcodes mxbai-embed-large."
     },
     "legal-corpus": {
       "processor": "laplacian-heatmap",
@@ -63,40 +63,41 @@
       "tools": [
         "vault_retrieve"
       ],
-      "note": "Salt-alignment fix applied (query and shards both sign 'corpus'). Pre-fix serialized indexes are incompatible — rebuild after upgrade. FOLD: v2 also records a Pi Qdrant backup for this domain (collection medical-heatmap, nomic-embed-text, 768-D) alongside the local vault — kept here as a note so the fact isn't dropped; Joe confirms whether the backup path stays canonical."
+      "note": "Salt-alignment fix applied (query and shards both sign 'corpus'). Pre-fix serialized indexes are incompatible — rebuild after upgrade. FOLD RESOLVED (arbitration, PR #26): the Pi backup exists (collection medical-heatmap, 29,333 points, nomic-embed-text, 768-D) and stays a backup; the local vault remains this pipeline's store."
     },
     "repo-husk": {
       "processor": "simhash-128",
-      "collection": "vault/index.json",
+      "collection": "husk-whiteglove",
       "dims": 128,
       "receptacle": "pattern_scan",
-      "ingest_script": "brain/indexer/build-index.ts",
+      "ingest_script": "scripts/ingest_husk.py",
       "tools": [
         "pattern_scan"
       ],
-      "note": "Real-world result: Open Claw source fed through this path surfaced vulns it hadn't seen by reading its own source directly. [STATED] FOLD DISAGREEMENT #3: v2 records a parallel Qdrant husk path (collection husk-{repo_name}, scripts/ingest_husk.py, nomic-embed-text, 768-D) while v3 stores the local vault-index. Both exist in the wild — which is canonical for this manifest is Joe's call."
+      "note": "Real-world result: Open Claw source fed through this path surfaced vulns it hadn't seen by reading its own source directly. [STATED] FOLD DISAGREEMENT #3 RESOLVED (arbitration, PR #26): Qdrant husk-whiteglove is the canonical store; the local vault-index is the secondaryStore (local-fast-path). ingest.script builds the canonical store (scripts/ingest_husk.py); the secondary vault is rebuilt by brain/indexer/build-index.ts."
     },
     "property-data": {
       "processor": "eve-v2-gat",
       "collection": "hydra-unclaimed",
       "dims": 3072,
       "receptacle": "terrain_query",
+      "ingest_script": "agents/ingest_eve.py",
       "tools": [
         "terrain_query"
       ],
-      "note": "Liquidity-pool lab standing up now may add a temporal sibling here. FOLD: v2's note says 'Not yet wired' while this entry's status says operational — Joe confirms which is current. v2 receptacle is terrain_query (folded above); FOLD_SPEC's 'property-hydra q' cell differs — v2 fact kept per settled direction."
+      "note": "Liquidity-pool lab standing up now may add a temporal sibling here. FOLD RESOLVED (arbitration, PR #26): operational confirmed — hydra-unclaimed exists on the Pi (3072-D, 500 points); v2's 'Not yet wired' note was stale. v2 receptacle terrain_query kept."
     },
     "finance-crypto": {
       "processor": "temporal-concat",
       "collection": "spectral-heatmap",
-      "embed_model": "nomic-embed-text",
+      "embed_model": "mxbai-embed-large",
       "dims": 3072,
       "receptacle": "terrain_query",
       "ingest_script": "scripts/ingest-finance-heatmap.ts",
       "tools": [
         "terrain_query"
       ],
-      "note": "package.json shows refinery:finance, calibrate:finance, navigate:finance, ingest:finance — this path is actively being wired. FOLD DISAGREEMENT #1 sibling: v2 says embed_model=mxbai-embed-large (same disagreement as roblox-luau — the temporal pair presumably share one model). Joe confirms before locking."
+      "note": "package.json shows refinery:finance, calibrate:finance, navigate:finance, ingest:finance — this path is actively being wired. FOLD DISAGREEMENT #1 sibling RESOLVED (arbitration, PR #26): mxbai-embed-large, same verification as roblox-luau."
     }
   }
 }

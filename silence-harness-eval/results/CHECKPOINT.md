@@ -221,3 +221,23 @@ The PR #26 fact arbitration verified the following configuration rules, which we
 5. **arbiter endpoint:** Left as `null`. Arbiter routes through LawLibra's HTTP seam, not directly to Qdrant.
 
 Additionally, a `provenance` field was added to the DomainPipeline schema. The `medical-corpus` and the WhiteGlove-resident legal data (in `repo-husk`) have been marked as `pipeline-test-fixture` to formally distinguish them from production corpora like LawLibra's canonical legal-heatmap.
+
+### Post-merge hygiene (2026-07-09, Fable)
+
+- **`manifests/pipeline.json` regenerated** — the arbitration edited the source
+  manifest without rerunning `generate:v2`, so the generated artifact was one
+  commit stale (embed models, husk-whiteglove store, eve ingest path). Working
+  rule going forward: any `domains.config.ts` edit ends with
+  `npm run generate:v2`.
+- **The five in-config disagreement notes now record their resolutions** —
+  they still asked "Joe confirms" for questions the arbitration had answered,
+  which contradicted the corrected fields sitting right above them.
+- **repo-husk `ingest.script` aligned to the new canonical store**: it still
+  pointed at `brain/indexer/build-index.ts` (the local-vault builder) after
+  the arbitration made Qdrant `husk-whiteglove` canonical. Now
+  `scripts/ingest_husk.py` (the canonical store's builder — v2's own fact for
+  the husk path), with build-index.ts noted as the secondary-vault builder.
+  One-glance confirm requested from Joe since this cell wasn't in the
+  arbitration list.
+- Suggestion (not actioned): add `npm run typecheck && npm run check:refusal`
+  in `spectral-config/` to quality.yml so manifest regressions gate PRs.

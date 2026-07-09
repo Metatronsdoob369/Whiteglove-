@@ -96,9 +96,9 @@ export const domains: DomainManifest = {
       },
       notes:
         "First proof. Temporal path ONLY valid where sequence = causality. " +
-        "FOLD DISAGREEMENT #1: v2 pipeline.json says embed_model=mxbai-embed-large; " +
-        "the nomic-embed-text above was Claude-inferred [CONFIRM]. v2 likely right — " +
-        "Joe confirms which the Pi actually runs before locking.",
+        "FOLD DISAGREEMENT #1 RESOLVED (arbitration, PR #26): mxbai-embed-large — " +
+        "both embed models are active on the Pi, but every ingest script " +
+        "hardcodes mxbai-embed-large.",
     },
 
     // ─── OPERATIONAL: legal corpus, topological ───────────────────────
@@ -328,10 +328,9 @@ export const domains: DomainManifest = {
       notes:
         "Salt-alignment fix applied (query and shards both sign 'corpus'). " +
         "Pre-fix serialized indexes are incompatible — rebuild after upgrade. " +
-        "FOLD: v2 also records a Pi Qdrant backup for this domain (collection " +
-        "medical-heatmap, nomic-embed-text, 768-D) alongside the local vault — " +
-        "kept here as a note so the fact isn't dropped; Joe confirms whether " +
-        "the backup path stays canonical.",
+        "FOLD RESOLVED (arbitration, PR #26): the Pi backup exists (collection " +
+        "medical-heatmap, 29,333 points, nomic-embed-text, 768-D) and stays a " +
+        "backup; the local vault remains this pipeline's store.",
       provenance: "pipeline-test-fixture", // data run to validate mapping, not a canonical corpus
     },
 
@@ -365,7 +364,7 @@ export const domains: DomainManifest = {
         role: "local-fast-path",
       },
       ingest: {
-        script: "brain/indexer/build-index.ts", // FOLD_SPEC — builds the local SimHash vault
+        script: "scripts/ingest_husk.py", // builds the CANONICAL store (Qdrant husk-whiteglove) — v2's fact for the husk path
         refineryStage: null,
       },
       receptacle: {
@@ -390,10 +389,11 @@ export const domains: DomainManifest = {
       notes:
         "Real-world result: Open Claw source fed through this path surfaced " +
         "vulns it hadn't seen by reading its own source directly. [STATED] " +
-        "FOLD DISAGREEMENT #3: v2 records a parallel Qdrant husk path " +
-        "(collection husk-{repo_name}, scripts/ingest_husk.py, nomic-embed-text, " +
-        "768-D) while v3 stores the local vault-index. Both exist in the wild — " +
-        "which is canonical for this manifest is Joe's call.",
+        "FOLD DISAGREEMENT #3 RESOLVED (arbitration, PR #26): Qdrant " +
+        "husk-whiteglove is the canonical store; the local vault-index is the " +
+        "secondaryStore (local-fast-path). ingest.script builds the canonical " +
+        "store (scripts/ingest_husk.py); the secondary vault is rebuilt by " +
+        "brain/indexer/build-index.ts.",
     },
 
     // ─── OPERATIONAL: property/financial graph ────────────────────────
@@ -446,10 +446,9 @@ export const domains: DomainManifest = {
       },
       notes:
         "Liquidity-pool lab standing up now may add a temporal sibling here. " +
-        "FOLD: v2's note says 'Not yet wired' while this entry's status says " +
-        "operational — Joe confirms which is current. v2 receptacle is " +
-        "terrain_query (folded above); FOLD_SPEC's 'property-hydra q' cell " +
-        "differs — v2 fact kept per settled direction.",
+        "FOLD RESOLVED (arbitration, PR #26): operational confirmed — " +
+        "hydra-unclaimed exists on the Pi (3072-D, 500 points); v2's 'Not yet " +
+        "wired' note was stale. v2 receptacle terrain_query kept.",
     },
 
     // ─── WIRING: finance/crypto temporal (the live lab) ───────────────
@@ -501,9 +500,8 @@ export const domains: DomainManifest = {
       notes:
         "package.json shows refinery:finance, calibrate:finance, " +
         "navigate:finance, ingest:finance — this path is actively being wired. " +
-        "FOLD DISAGREEMENT #1 sibling: v2 says embed_model=mxbai-embed-large " +
-        "(same disagreement as roblox-luau — the temporal pair presumably share " +
-        "one model). Joe confirms before locking.",
+        "FOLD DISAGREEMENT #1 sibling RESOLVED (arbitration, PR #26): " +
+        "mxbai-embed-large, same verification as roblox-luau.",
     },
   ],
 };

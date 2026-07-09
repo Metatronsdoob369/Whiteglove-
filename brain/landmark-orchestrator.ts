@@ -211,7 +211,7 @@ export class LandmarkOrchestrator {
           continue;
         }
 
-        const signature = this.guard.simHash128FromText(shard.content, shard.source || "unknown");
+        const signature = this.guard.simHash128FromText(shard.content, "corpus");
 
         this.index.push({
           shardId: shard.id || shard.shardId || file.replace(".json", ""),
@@ -341,7 +341,7 @@ export class LandmarkOrchestrator {
 
     // ─── Step 1: SimHash the query ──────────────────────────────
     const indexStart = Date.now();
-    const querySignature = this.guard.simHash128FromText(question, "query_");
+    const querySignature = this.guard.simHash128FromText(question, "corpus");
 
     // ─── Step 1.5: O(1) HOT PATH ────────────────────────────────
     for (const hot of this.hotRingBuffer.values()) {
@@ -374,11 +374,18 @@ export class LandmarkOrchestrator {
       .filter(r => r.drift.stable) // Below calibrated threshold
       .slice(0, this.config.maxContextShards);
 
-    // Faith-Less enforcement: if nothing is close enough, stay silent
+    // Faith-Less enforcement: if nothing is close enough, stay silent.
+    // The silence still carries the closest miss so callers can see how
+    // far the best candidate was from the gate.
     if (selected.length === 0) {
       return {
         answer: null,
-        citations: [],
+        citations: ranked[0] ? [{
+          shardId: ranked[0].entry.shardId,
+          source: ranked[0].entry.source,
+          hammingRatio: ranked[0].drift.hammingRatio,
+          contentPreview: ranked[0].entry.contentPreview
+        }] : [],
         sourceTexts: [],
         metrics: {
           indexLookupMs,

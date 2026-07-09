@@ -42,9 +42,14 @@ async function run(
   const latencyMs = performance.now() - t0;
 
   if (result.silenced) {
-    // bestScore stays undefined until the one-line orchestrator patch
-    // (see PATCHES.md) adds the closest failed ratio to silenced returns.
-    return { answered: false, latencyMs };
+    // Post-PATCHES.md §1, silence carries the closest failed match.
+    return {
+      answered: false,
+      bestScore: result.citations.length
+        ? Math.min(...result.citations.map((c: { hammingRatio: number }) => c.hammingRatio))
+        : undefined,
+      latencyMs,
+    };
   }
 
   return {

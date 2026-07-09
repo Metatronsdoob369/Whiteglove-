@@ -113,20 +113,33 @@ do not trust defaults.
 
 ## 5. Known issues (current status)
 
-1. **Salt mismatch in the retrieval gate (open, fix drafted).** Shards
-   are signed with per-source schema salts; queries are signed with the
-   `"query_"` schema. Different salts produce uncorrelated signatures,
-   so query→shard distances cluster near random (~0.5) regardless of
-   topical overlap, and the 0.45 gate passes a nontrivial fraction of
-   shards by chance. Practical effect: the gate rarely silences and
-   selection is weakly correlated with relevance. Fix: sign all
-   retrieval signatures with one corpus-wide schema (see
-   `PATCHES.md` §2), then re-calibrate thresholds.
-2. **Silence carries no score (open, one-line fix).** Silenced results
-   don't report the closest failed match, which blocks the
-   silence-vs-threshold curve. `PATCHES.md` §1.
+1. **Salt mismatch in the retrieval gate (FIXED 2026-07-08).** Shards
+   were signed with per-source schema salts while queries were signed
+   with the `"query_"` schema, so query→shard distances clustered near
+   random (~0.5) and the 0.45 gate passed shards by chance. Both
+   retrieval call sites now sign with the corpus-wide `"corpus"` schema
+   (`PATCHES.md` §2). Follow-ons:
+   - **Saved indexes must be rebuilt** — signatures serialized before
+     the fix cannot be compared against post-fix query signatures.
+   - **`queryThreshold: 0.45` predates the fix** and is effectively
+     gate-off on post-fix score distributions (smoke run: best scores
+     land ~0.34–0.45). Re-calibrate with the harness sweep on a real
+     corpus before trusting any threshold (Fable_Checklist Tasks 10–11).
+2. **Silence carries no score (FIXED 2026-07-08).** Silenced results now
+   carry the closest failed match as a single citation (`PATCHES.md`
+   §1); the retrieval contract test asserts it, and the eval adapter
+   surfaces it as `bestScore` for sweep plots.
 3. **Vector SimHash path not locality-sensitive** — see §3. Parked
    unless/until vector gating is needed.
+4. **Weak short-query separation on code shards (open).** Word-level
+   whitespace tokenization keeps punctuation glued to code tokens
+   (`entry.frequency` ≠ `frequency`), so a short natural-language query
+   shares little token mass with a 120-line code chunk. Smoke run: one
+   grounded query ranked its evidence #2 @ 0.3438; the other's evidence
+   sat #5 @ 0.4531 behind unrelated chunks at 0.4141. Candidate fixes:
+   code-aware tokenization (strip punctuation, split identifiers),
+   token weighting, smaller chunks. Decide after the real-corpus
+   calibration set exists.
 
 These are listed deliberately: the product's credibility rests on
 measuring its own failure surface honestly.

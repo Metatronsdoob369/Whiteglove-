@@ -4,6 +4,10 @@
  * Reads manifests/pipeline.json and provides typed routing for the TGIL
  * domain → processor → collection → receptacle contract.
  *
+ * NOTE: manifests/pipeline.json is GENERATED from
+ * spectral-config/config/domains.config.ts (`npm run generate:v2` there).
+ * Do not hand-edit the JSON — edit the v3 manifest and regenerate.
+ *
  * Usage:
  *   import { routeByDomain, listDomains, getCollection } from "./brain/pipeline-router";
  *
@@ -24,9 +28,10 @@ export interface DomainRoute {
   embed_model?: string;
   dims?:        number;
   receptacle:   string;
-  role:         string;
+  role?:        string;
   note?:        string;
   ingest_script?: string;
+  tools?:       string[];
   /** For repo-husk: resolves {repo_name} template */
   resolvedCollection?: string;
 }
@@ -87,11 +92,13 @@ export function getCollection(domain: string, repoName?: string): string | null 
 }
 
 /**
- * Get the Qdrant URL for a domain (falls back to Pi default).
+ * Get the Qdrant URL for a domain. Endpoints come from the manifest (set
+ * QDRANT_PI_URL when generating) or the same env var at runtime — no
+ * literal endpoint lives in this public repo.
  */
 export function getQdrantUrl(domain: string): string {
   const route = routeByDomain(domain);
-  return route?.qdrant ?? "http://100.113.215.46:6333";
+  return route?.qdrant ?? process.env.QDRANT_PI_URL ?? "";
 }
 
 /**

@@ -1,68 +1,102 @@
 {
-  "version": "1.0",
-  "description": "TGIL domain routing table — domain → processor → collection → receptacle",
+  "version": "2.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:v2` in spectral-config/. TGIL domain routing table — domain → processor → collection → receptacle.",
   "domains": {
-    "legal-corpus": {
-      "processor": "laplacian-768",
-      "collection": "legal-heatmap",
-      "qdrant": "http://100.113.215.46:6333",
+    "roblox-luau": {
+      "processor": "temporal-concat",
+      "collection": "spectral-heatmap",
       "embed_model": "nomic-embed-text",
+      "dims": 3072,
+      "receptacle": "terrain_query",
+      "ingest_script": "ingest:roblox",
+      "tools": [
+        "terrain_query"
+      ],
+      "note": "First proof. Temporal path ONLY valid where sequence = causality. FOLD DISAGREEMENT #1: v2 pipeline.json says embed_model=mxbai-embed-large; the nomic-embed-text above was Claude-inferred [CONFIRM]. v2 likely right — Joe confirms which the Pi actually runs before locking."
+    },
+    "legal-corpus": {
+      "processor": "laplacian-heatmap",
+      "collection": "legal-heatmap",
+      "embed_model": "temporal-manifold",
       "dims": 768,
       "receptacle": "legal_retrieve",
-      "role": "legal",
-      "note": "Alabama Code + StackExchange/Gutenberg legal. Full statute text in payload."
+      "ingest_script": "legal_heatmap.py",
+      "tools": [
+        "legal_retrieve"
+      ],
+      "note": "CONFLICT: production is running HOT at 3072-D (violates the dimensionPolicy — 3072 is temporal-only). Target is 768-D now, then lower. The legal-heatmap collection needs re-ingest at low-D. This is a corpus fix, not a manifest fix — the manifest is correctly recording that live violates the rule."
+    },
+    "lawlibra": {
+      "processor": "laplacian-heatmap",
+      "collection": "legal-heatmap",
+      "embed_model": "temporal-manifold",
+      "dims": 3072,
+      "receptacle": "/health",
+      "tools": [
+        "/health",
+        "/api/legal/query"
+      ],
+      "note": "Endpoints proven by test: GET /health, POST /api/legal/query. Frontend is walled off from Qdrant by design — LawLibra is the seam."
+    },
+    "arbiter-legalengine": {
+      "processor": "laplacian-heatmap",
+      "collection": "legal-heatmap (via LawLibra)",
+      "embed_model": "temporal-manifold",
+      "dims": 3072,
+      "receptacle": "consult_statute",
+      "tools": [
+        "consult_statute",
+        "verify_negotiability",
+        "analyze_clause_risks",
+        "draft_verified_form",
+        "verify_necessary",
+        "verify_ordinary"
+      ],
+      "note": "THE PRODUCT. Ships independent of the 768-vs-3072 corpus question because it only speaks to LawLibra's HTTP seam. Swap the corpus underneath without touching the app. Third silence type (contract-schema) is the real IP and the cleanest sales story."
     },
     "medical-corpus": {
       "processor": "simhash-128",
-      "collection": "vault",
-      "index": "brain/vault/index.json",
-      "qdrant": "http://100.113.215.46:6333",
-      "qdrant_collection": "medical-heatmap",
-      "embed_model": "nomic-embed-text",
-      "dims": 768,
+      "collection": "vault/index.json",
+      "dims": 128,
       "receptacle": "vault_retrieve",
-      "role": "medical",
-      "note": "MedlinePlus 33,685 shards. SimHash-128 local index + Qdrant backup."
+      "ingest_script": "brain/indexer/rechunk_medical.py",
+      "tools": [
+        "vault_retrieve"
+      ],
+      "note": "Salt-alignment fix applied (query and shards both sign 'corpus'). Pre-fix serialized indexes are incompatible — rebuild after upgrade. FOLD: v2 also records a Pi Qdrant backup for this domain (collection medical-heatmap, nomic-embed-text, 768-D) alongside the local vault — kept here as a note so the fact isn't dropped; Joe confirms whether the backup path stays canonical."
     },
     "repo-husk": {
-      "processor": "simhash-768",
-      "collection": "husk-{repo_name}",
-      "qdrant": "http://100.113.215.46:6333",
-      "embed_model": "nomic-embed-text",
-      "dims": 768,
+      "processor": "simhash-128",
+      "collection": "vault/index.json",
+      "dims": 128,
       "receptacle": "pattern_scan",
-      "role": "security",
-      "ingest_script": "scripts/ingest_husk.py",
-      "note": "Any codebase. Run ingest_husk.py --repo /path --name {repo_name} to add."
-    },
-    "roblox-luau": {
-      "processor": "temporal-3072",
-      "collection": "spectral-heatmap",
-      "qdrant": "http://100.113.215.46:6333",
-      "embed_model": "mxbai-embed-large",
-      "dims": 3072,
-      "receptacle": "terrain_query",
-      "role": "external",
-      "note": "3072-D temporal concat [v_t-1|v_t|v_t+1]. Handled by spectral-terrain engine."
-    },
-    "finance-crypto": {
-      "processor": "temporal-3072",
-      "collection": "spectral-heatmap",
-      "qdrant": "http://100.113.215.46:6333",
-      "embed_model": "mxbai-embed-large",
-      "dims": 3072,
-      "receptacle": "terrain_query",
-      "role": "external",
-      "note": "Time-sensitive financial corpus. Liquidity, DeFi, blockchain. Same engine as roblox-luau."
+      "ingest_script": "brain/indexer/build-index.ts",
+      "tools": [
+        "pattern_scan"
+      ],
+      "note": "Real-world result: Open Claw source fed through this path surfaced vulns it hadn't seen by reading its own source directly. [STATED] FOLD DISAGREEMENT #3: v2 records a parallel Qdrant husk path (collection husk-{repo_name}, scripts/ingest_husk.py, nomic-embed-text, 768-D) while v3 stores the local vault-index. Both exist in the wild — which is canonical for this manifest is Joe's call."
     },
     "property-data": {
-      "processor": "eve-v2-gat-3072",
+      "processor": "eve-v2-gat",
       "collection": "hydra-unclaimed",
-      "qdrant": "http://100.113.215.46:6333",
       "dims": 3072,
       "receptacle": "terrain_query",
-      "role": "external",
-      "note": "Eve v2 GAT graph. property-hydra repo. Not yet wired."
+      "tools": [
+        "terrain_query"
+      ],
+      "note": "Liquidity-pool lab standing up now may add a temporal sibling here. FOLD: v2's note says 'Not yet wired' while this entry's status says operational — Joe confirms which is current. v2 receptacle is terrain_query (folded above); FOLD_SPEC's 'property-hydra q' cell differs — v2 fact kept per settled direction."
+    },
+    "finance-crypto": {
+      "processor": "temporal-concat",
+      "collection": "spectral-heatmap",
+      "embed_model": "nomic-embed-text",
+      "dims": 3072,
+      "receptacle": "terrain_query",
+      "ingest_script": "scripts/ingest-finance-heatmap.ts",
+      "tools": [
+        "terrain_query"
+      ],
+      "note": "package.json shows refinery:finance, calibrate:finance, navigate:finance, ingest:finance — this path is actively being wired. FOLD DISAGREEMENT #1 sibling: v2 says embed_model=mxbai-embed-large (same disagreement as roblox-luau — the temporal pair presumably share one model). Joe confirms before locking."
     }
   }
 }

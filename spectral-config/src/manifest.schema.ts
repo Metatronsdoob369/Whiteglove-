@@ -116,7 +116,35 @@ export const DomainPipeline = z.object({
     location: z.string().min(1),
     /** embedding model if the store needs one; null for simhash/faiss-fingerprint */
     embedModel: z.string().nullable(),
+    /**
+     * WIRE (folded from v2 pipeline.json). The reachable endpoint of the
+     * store. null when the store is a local file (vault-index, faiss-pack).
+     * Example: "http://100.113.215.46:6333" for a Qdrant collection.
+     * This is infra fact — only Joe can verify it.
+     */
+    endpoint: z.string().url().nullable().optional(),
+    /**
+     * WIRE. Vector distance metric the store is configured with, if it's a
+     * vector store. Distinct from silence.signal: this is how the STORE
+     * indexes, silence.signal is how the RECEPTACLE gates. They usually
+     * agree, but recording both catches the case where they don't.
+     */
+    distanceMetric: z.enum(["cosine", "dot", "euclid"]).nullable().optional(),
   }),
+
+  /**
+   * WIRE (folded from v2). How this pipeline's corpus is (re)built. Lets an
+   * agent regenerate a collection without hunting for the script — and is
+   * exactly what the three HOT pipelines need pointed at a low-D re-ingest.
+   */
+  ingest: z
+    .object({
+      /** script/command that ingests this domain, e.g. "scripts/ingest-finance-heatmap.ts" */
+      script: z.string().min(1),
+      /** processor/refinery entrypoint if different from the script */
+      refineryStage: z.string().nullable(),
+    })
+    .optional(),
 
   /** The vehicle built to run on this fuel. */
   receptacle: z.object({
@@ -124,6 +152,13 @@ export const DomainPipeline = z.object({
     kind: z.enum(["cli-query", "http-service", "mcp", "a2a", "harness-tui"]),
     /** path or URL — where the receptacle lives */
     ref: z.string().min(1),
+    /**
+     * WIRE (folded from v2). Named tools/endpoints this receptacle exposes,
+     * e.g. ["consult_statute","verify_negotiability"] for ArbiterOS, or
+     * ["/health","/api/legal/query"] for LawLibra. Omitted = not yet folded
+     * from v2 (distinct from [] which means "confirmed none").
+     */
+    tools: z.array(z.string()).optional(),
   }),
 
   silence: SilencePolicy,

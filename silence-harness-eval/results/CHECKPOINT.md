@@ -145,3 +145,67 @@ Review notes:
 - Cheap hardening suggestion: make the refusal probe a permanent
   `npm run check:refusal` so schema-refusal can't silently regress.
 
+## v2→v3 fold — executed per FOLD_SPEC (2026-07-08, Fable)
+
+v4 schema landed; backward-compat verified first (unchanged v3 config
+validated against the extended schema before any folding). Direction as
+settled: v3 structure wins, v2 facts win, disagreements recorded — none
+auto-picked.
+
+- All 8 pipelines carry the wire fields; selfcheck now prints
+  **"Wire fold (v2→v3): 8/8 — fold complete"** using the omitted-vs-`[]`
+  semantic (absence = not yet folded, `[]` = confirmed none).
+- ArbiterOS tools folded verbatim from its README (6): `consult_statute`,
+  `verify_negotiability`, `analyze_clause_risks`, `draft_verified_form`,
+  `verify_necessary`, `verify_ordinary`.
+- v2 receptacle tool names preserved: `legal_retrieve`, `vault_retrieve`,
+  `pattern_scan`, `terrain_query` (the three terrain pipelines).
+
+**Disagreements for Joe (each recorded in the config where it lives):**
+
+1. **roblox-luau + finance-crypto embed model** — v2 `mxbai-embed-large` vs
+   v3 `nomic-embed-text` [CONFIRM]. Not locked; likely one answer for the
+   temporal pair.
+2. **property-data** — v2 note says "Not yet wired", v3 status says
+   operational. Also FOLD_SPEC's tools cell said "property-hydra q" but v2's
+   fact is `terrain_query` (v2 kept per settled direction). `ingest` left
+   omitted = not-yet-folded: eve_v2.py's real path lives in the
+   property-hydra repo, unreachable from here.
+3. **repo-husk dual store** — v2 records a Qdrant husk path
+   (`husk-{repo_name}`, scripts/ingest_husk.py, nomic, 768-D); v3 stores the
+   local vault-index (build-index.ts). Both exist in the wild — canonical is
+   Joe's call.
+4. **medical-corpus Pi backup** — v2's `medical-heatmap` backup collection
+   (nomic, 768-D) kept as a note so the fact isn't dropped.
+5. **arbiter store.endpoint** — spec cell ":4881→:4880" isn't a URL; set
+   `null` (pure consumer — the chain already lives in receptacle.ref).
+   lawlibra's endpoint = `LAWLIBRA_URL` env per the ":4880 base" cell.
+
+**Two-layer check is now permanent:** `npm run check:refusal` — **6/6**
+(5 schema refusals + the adversarial case: a static 3072-D pipeline parses
+fine AND is flagged by `auditDimensions()`). Layers verified distinct, exit
+code gates CI if wired in.
+
+**pipeline.json is now GENERATED:** `npm run generate:v2` emits
+`manifests/pipeline.json` from the v3 manifest (8 domains, v2 receptacle
+names preserved as the `receptacle` field). The hand-maintained v2 is
+retired; pipeline-router.ts says so in its header and its `DomainRoute` type
+matches the generated shape. NOTE: v2's `role` field has no v3 home — the
+generated file omits it; if agent role-routing ever needs it, add an optional
+`role` to the schema (one-liner, Joe's call).
+
+**Secrets — acted on, plus one flag Joe should read:**
+
+- `store.endpoint` values resolve from env (`QDRANT_PI_URL` /
+  `LAWLIBRA_URL`, names matching ingest_husk.py). The folded config and the
+  generated pipeline.json contain **zero endpoint literals** (grep-verified).
+  `getQdrantUrl()`'s hardcoded Pi fallback now reads the env var too.
+- ⚠ **Pre-existing exposure:** this repo is PUBLIC, and the Pi's Tailscale
+  IP was already on master before this fold (old pipeline.json, the router
+  fallback, scripts/ingest_husk.py defaults) — and stays in git history
+  regardless. FOLD_SPEC's "fine for a private PR" premise doesn't hold here.
+  Treat the IP/host as exposed — tailnet ACLs are the real boundary; consider
+  rotating the tailnet IP and scrubbing ingest_husk.py's default in a
+  follow-up. Flagged, not actioned: that script drives live ingests on Joe's
+  side.
+

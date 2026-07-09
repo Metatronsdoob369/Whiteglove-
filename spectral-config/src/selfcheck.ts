@@ -11,4 +11,9 @@ console.log(`\nUnresolved live-vs-target conflicts:`);
 for (const p of MANIFEST.pipelines.filter(p => p.liveVsTarget && !p.liveVsTarget.resolved)) {
   console.log(`  ${p.id}: live=[${p.liveVsTarget!.live.slice(0,40)}...] target=[${p.liveVsTarget!.target.slice(0,40)}...]`);
 }
+const unfolded = MANIFEST.pipelines.filter((p) => p.receptacle.tools === undefined).map((p) => p.id);
+console.log(
+  `\nWire fold (v2→v3): ${MANIFEST.pipelines.length - unfolded.length}/${MANIFEST.pipelines.length} pipelines carry receptacle.tools` +
+    (unfolded.length ? ` — pending: ${unfolded.join(", ")}` : " — fold complete")
+);
 console.log(`\nSilence mechanisms: ${[...new Set(MANIFEST.pipelines.map(p => p.silence.signal))].join(", ")}`);

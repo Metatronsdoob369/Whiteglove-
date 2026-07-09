@@ -15,6 +15,17 @@
 
 import type { DomainManifest } from "../src/manifest.schema.js";
 
+/**
+ * WIRE endpoints resolve from env — this repo is PUBLIC, so store-endpoint
+ * literals (the Pi's Tailscale IP, LawLibra host) must not be committed
+ * (FOLD_SPEC "Secrets / public-repo caution"). Set QDRANT_PI_URL /
+ * LAWLIBRA_URL in a gitignored .env or the shell. `null` here means
+ * "endpoint exists but not provided in this environment" — NOT "no endpoint".
+ * Env names match scripts/ingest_husk.py for consistency.
+ */
+const QDRANT_PI_URL = process.env.QDRANT_PI_URL ?? null;
+const LAWLIBRA_URL = process.env.LAWLIBRA_URL ?? null;
+
 export const domains: DomainManifest = {
   manifestVersion: "1.0",
   refinery: "spectral-terrain",
@@ -56,12 +67,19 @@ export const domains: DomainManifest = {
       },
       store: {
         kind: "qdrant",
-        location: "spectral-heatmap", // [CONFIRM] collection name
-        embedModel: "nomic-embed-text", // [CONFIRM] which embed model per-domain
+        location: "spectral-heatmap", // [CONFIRM→v2 AGREES] same collection in pipeline.json
+        embedModel: "nomic-embed-text", // [DISAGREEMENT #1 — DO NOT LOCK] v2 says mxbai-embed-large; Joe arbitrates
+        endpoint: QDRANT_PI_URL, // folded from v2 qdrant field
+        // distanceMetric omitted — v2 doesn't record it (FOLD_SPEC "?"); Joe confirms
+      },
+      ingest: {
+        script: "ingest:roblox", // FOLD_SPEC — npm script in spectral-terrain's package.json
+        refineryStage: null,
       },
       receptacle: {
         kind: "cli-query",
         ref: "spectral-terrain/engine/query.ts", // [STATED] pipeline manifest
+        tools: ["terrain_query"], // folded from v2 receptacle field
       },
       silence: {
         enabled: true,
@@ -76,7 +94,11 @@ export const domains: DomainManifest = {
           note: "temporal KNN gate not yet calibrated in this manifest",
         },
       },
-      notes: "First proof. Temporal path ONLY valid where sequence = causality.",
+      notes:
+        "First proof. Temporal path ONLY valid where sequence = causality. " +
+        "FOLD DISAGREEMENT #1: v2 pipeline.json says embed_model=mxbai-embed-large; " +
+        "the nomic-embed-text above was Claude-inferred [CONFIRM]. v2 likely right — " +
+        "Joe confirms which the Pi actually runs before locking.",
     },
 
     // ─── OPERATIONAL: legal corpus, topological ───────────────────────
@@ -102,11 +124,18 @@ export const domains: DomainManifest = {
       store: {
         kind: "qdrant",
         location: "legal-heatmap", // [STATED] confirmed by legal.test.ts payload
-        embedModel: "temporal-manifold", // [STATED] test payload embed_model
+        embedModel: "temporal-manifold", // [STATED] test payload embed_model (v2 claims nomic-embed-text — the target-side value; see liveVsTarget)
+        endpoint: QDRANT_PI_URL, // folded from v2 qdrant field
+        distanceMetric: "cosine", // FOLD_SPEC "cosine?" — test scores are high-is-closer; [CONFIRM] against live Qdrant config
+      },
+      ingest: {
+        script: "legal_heatmap.py", // FOLD_SPEC — heat-kernel refinery stage; the low-D re-ingest points here
+        refineryStage: null,
       },
       receptacle: {
         kind: "http-service",
         ref: "http://lawlibra.local:4880/api/legal/query", // [STATED] legal.test.ts
+        tools: ["legal_retrieve"], // folded from v2 receptacle field; LawLibra's HTTP endpoints live on the lawlibra entry
       },
       silence: {
         enabled: true,
@@ -160,10 +189,13 @@ export const domains: DomainManifest = {
         kind: "qdrant",
         location: "legal-heatmap",
         embedModel: "temporal-manifold",
+        endpoint: LAWLIBRA_URL, // FOLD_SPEC ":4880 base" — the seam consumers actually reach; Pi Qdrant sits behind it (legal-corpus entry)
+        distanceMetric: null, // FOLD_SPEC "—": the seam serves whatever the collection was built with
       },
       receptacle: {
         kind: "http-service",
         ref: "http://lawlibra.local:4880", // [STATED] legal.test.ts
+        tools: ["/health", "/api/legal/query"], // folded per FOLD_SPEC — endpoints proven by legal.test.ts
       },
       silence: {
         enabled: true,
@@ -205,10 +237,21 @@ export const domains: DomainManifest = {
         kind: "qdrant",
         location: "legal-heatmap (via LawLibra)",
         embedModel: "temporal-manifold",
+        endpoint: null, // pure consumer — store reached only through LawLibra's seam (FOLD_SPEC ":4881→:4880" chain is the receptacle ref)
+        distanceMetric: null, // FOLD_SPEC "—": inherits whatever LawLibra serves
       },
       receptacle: {
         kind: "http-service",
         ref: "arbiterOS backend :4881 → LawLibra :4880", // [STATED] README + test
+        tools: [
+          // the 6 verification tools, verbatim from the ArbiterOS README
+          "consult_statute",
+          "verify_negotiability",
+          "analyze_clause_risks",
+          "draft_verified_form",
+          "verify_necessary",
+          "verify_ordinary",
+        ],
       },
       silence: {
         enabled: true,
@@ -254,10 +297,17 @@ export const domains: DomainManifest = {
         kind: "vault-index",
         location: "vault/index.json", // [STATED]
         embedModel: null, // text-path SimHash needs no embed model
+        endpoint: null, // local-file store (FOLD_SPEC "vault path→null")
+        distanceMetric: null, // hamming index, not a vector-store metric
+      },
+      ingest: {
+        script: "brain/indexer/rechunk_medical.py", // FOLD_SPEC — rebuilds the medical shard corpus
+        refineryStage: null,
       },
       receptacle: {
         kind: "cli-query",
         ref: "WhiteGlove agent/index.ts", // [STATED]
+        tools: ["vault_retrieve"], // folded from v2 receptacle field
       },
       silence: {
         enabled: true,
@@ -277,7 +327,11 @@ export const domains: DomainManifest = {
       },
       notes:
         "Salt-alignment fix applied (query and shards both sign 'corpus'). " +
-        "Pre-fix serialized indexes are incompatible — rebuild after upgrade.",
+        "Pre-fix serialized indexes are incompatible — rebuild after upgrade. " +
+        "FOLD: v2 also records a Pi Qdrant backup for this domain (collection " +
+        "medical-heatmap, nomic-embed-text, 768-D) alongside the local vault — " +
+        "kept here as a note so the fact isn't dropped; Joe confirms whether " +
+        "the backup path stays canonical.",
     },
 
     // ─── OPERATIONAL: repo husk, fingerprint ──────────────────────────
@@ -300,10 +354,17 @@ export const domains: DomainManifest = {
         kind: "vault-index",
         location: "vault/index.json",
         embedModel: null,
+        endpoint: null, // local-file store (FOLD_SPEC "vault path→null")
+        distanceMetric: null, // hamming index, not a vector-store metric
+      },
+      ingest: {
+        script: "brain/indexer/build-index.ts", // FOLD_SPEC — builds the local SimHash vault
+        refineryStage: null,
       },
       receptacle: {
         kind: "cli-query",
         ref: "WhiteGlove agent/index.ts",
+        tools: ["pattern_scan"], // folded from v2 receptacle field
       },
       silence: {
         enabled: true,
@@ -320,7 +381,11 @@ export const domains: DomainManifest = {
       },
       notes:
         "Real-world result: Open Claw source fed through this path surfaced " +
-        "vulns it hadn't seen by reading its own source directly. [STATED]",
+        "vulns it hadn't seen by reading its own source directly. [STATED] " +
+        "FOLD DISAGREEMENT #3: v2 records a parallel Qdrant husk path " +
+        "(collection husk-{repo_name}, scripts/ingest_husk.py, nomic-embed-text, " +
+        "768-D) while v3 stores the local vault-index. Both exist in the wild — " +
+        "which is canonical for this manifest is Joe's call.",
     },
 
     // ─── OPERATIONAL: property/financial graph ────────────────────────
@@ -345,11 +410,17 @@ export const domains: DomainManifest = {
       store: {
         kind: "qdrant",
         location: "hydra-unclaimed", // [STATED] TGIL manifest
-        embedModel: null, // [CONFIRM] GAT produces embeddings; no external model?
+        embedModel: null, // [CONFIRM→v2 AGREES] v2 also records no embed_model for this domain
+        endpoint: QDRANT_PI_URL, // folded from v2 qdrant field
+        // distanceMetric omitted — v2 doesn't record it (FOLD_SPEC "?"); Joe confirms
       },
+      // ingest omitted deliberately — NOT YET FOLDED: v2 has no ingest_script for
+      // this domain and eve_v2.py lives in the property-hydra repo (unreachable
+      // from here). FOLD_SPEC cell "eve_v2 ingest" needs Joe to supply the real path.
       receptacle: {
         kind: "cli-query",
         ref: "property-hydra query", // [STATED]
+        tools: ["terrain_query"], // folded from v2 receptacle field (FOLD_SPEC cell said "property-hydra q" — v2 fact wins, divergence flagged)
       },
       silence: {
         enabled: true,
@@ -364,7 +435,12 @@ export const domains: DomainManifest = {
           note: "[CONFIRM] gate signal + threshold for the GAT path unknown to me.",
         },
       },
-      notes: "Liquidity-pool lab standing up now may add a temporal sibling here.",
+      notes:
+        "Liquidity-pool lab standing up now may add a temporal sibling here. " +
+        "FOLD: v2's note says 'Not yet wired' while this entry's status says " +
+        "operational — Joe confirms which is current. v2 receptacle is " +
+        "terrain_query (folded above); FOLD_SPEC's 'property-hydra q' cell " +
+        "differs — v2 fact kept per settled direction.",
     },
 
     // ─── WIRING: finance/crypto temporal (the live lab) ───────────────
@@ -386,12 +462,19 @@ export const domains: DomainManifest = {
       },
       store: {
         kind: "qdrant",
-        location: "spectral-heatmap", // [CONFIRM] shared with roblox or separate?
-        embedModel: "nomic-embed-text", // [CONFIRM]
+        location: "spectral-heatmap", // [CONFIRM→v2 AGREES it's shared] v2 also points finance at spectral-heatmap
+        embedModel: "nomic-embed-text", // [DISAGREEMENT #1 sibling — DO NOT LOCK] v2 says mxbai-embed-large; Joe arbitrates
+        endpoint: QDRANT_PI_URL, // folded from v2 qdrant field
+        // distanceMetric omitted — v2 doesn't record it (FOLD_SPEC "?"); Joe confirms
+      },
+      ingest: {
+        script: "scripts/ingest-finance-heatmap.ts", // FOLD_SPEC §ingest example — the live-lab ingest path
+        refineryStage: null,
       },
       receptacle: {
         kind: "cli-query",
         ref: "spectral-terrain/engine/navigate-finance.ts", // [STATED] package.json
+        tools: ["terrain_query"], // folded from v2 receptacle field
       },
       silence: {
         enabled: true,
@@ -408,7 +491,10 @@ export const domains: DomainManifest = {
       },
       notes:
         "package.json shows refinery:finance, calibrate:finance, " +
-        "navigate:finance, ingest:finance — this path is actively being wired.",
+        "navigate:finance, ingest:finance — this path is actively being wired. " +
+        "FOLD DISAGREEMENT #1 sibling: v2 says embed_model=mxbai-embed-large " +
+        "(same disagreement as roblox-luau — the temporal pair presumably share " +
+        "one model). Joe confirms before locking.",
     },
   ],
 };

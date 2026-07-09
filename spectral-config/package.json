@@ -1,0 +1,11 @@
+{
+  "name": "@nodeout/spectral-config",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "tsx src/selfcheck.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "zod": "^3.25.76" },
+  "devDependencies": { "@types/node": "^20.0.0", "tsx": "4.22.3", "typescript": "^5.8.3" }
+}

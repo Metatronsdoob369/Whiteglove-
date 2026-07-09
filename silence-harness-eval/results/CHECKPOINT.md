@@ -112,3 +112,36 @@ score near-random against the stale signatures.
 
 Manifest v3 enforces the dimension rule in code — `auditDimensions()` flags any static pipeline over 768-D. Three are currently hot (legal via LawLibra, and property-data), all because their collections were built at 3072 before the rule was set. The fix is re-ingesting those corpora at low-D, which is refinery work, not app work — and it doesn't block ArbiterOS shipping, because the app talks to LawLibra's seam regardless of the corpus's dimensionality underneath.
 
+## spectral-config v3 — landed and verified (2026-07-08, Fable)
+
+The zip drop is unpacked to `spectral-config/` as reviewable source (the zip
+blob is removed from the tree; git history keeps it). Verified on Marsh's box:
+
+- `npm run typecheck` — clean.
+- `npm run check` — manifest valid, **8 pipelines**; dimension audit flags
+  exactly three hot (`lawlibra` 3072-D, `arbiter-legalengine` 3072-D,
+  `property-data` 3072-D); one unresolved live-vs-target conflict
+  (`legal-corpus`: live 3072-D/temporal-manifold vs target 768-D); silence
+  mechanisms registered: knn-temporal, cosine, contract-schema, hamming.
+- **Refusal probe: 5/5 malformed manifests refused** (unknown geometry,
+  negative dims, missing silence policy, non-kebab id, empty dimensionality
+  rationale). The refusal is real, not aspirational.
+
+Review notes:
+
+- `brain/pipeline-router.ts` (manifest v2, `manifests/pipeline.json`) has
+  **zero importers** in this repo — nothing breaks if v3 becomes canonical.
+  v2 carries wire details v3 doesn't (per-domain Qdrant URLs, `ingest_script`,
+  receptacle tool names). Recommendation: fold those into v3 (or generate
+  `manifests/pipeline.json` FROM v3) and retire v2 — two manifests is exactly
+  the fragmentation this package exists to kill.
+- v2/v3 disagreements to reconcile during that fold: v2 says `roblox-luau`
+  embeds `mxbai-embed-large`, v3 says `nomic-embed-text` [CONFIRM]; v2
+  `legal-corpus` states `dims: 768`/`nomic` as if live, v3 records live =
+  3072/`temporal-manifold` with the conflict properly flagged.
+- WhiteGlove's orchestrator default stays `queryThreshold: 0.45` — the
+  manifest's own 0.35 entries say "Do not ship this number," so no threshold
+  was changed pending the real calibration sweep (Tasks 10–11).
+- Cheap hardening suggestion: make the refusal probe a permanent
+  `npm run check:refusal` so schema-refusal can't silently regress.
+

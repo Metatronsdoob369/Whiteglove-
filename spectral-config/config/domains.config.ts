@@ -68,7 +68,7 @@ export const domains: DomainManifest = {
       store: {
         kind: "qdrant",
         location: "spectral-heatmap", // [CONFIRM→v2 AGREES] same collection in pipeline.json
-        embedModel: "nomic-embed-text", // [DISAGREEMENT #1 — DO NOT LOCK] v2 says mxbai-embed-large; Joe arbitrates
+        embedModel: "mxbai-embed-large", // [VERIFIED] all ingest scripts hardcode mxbai-embed-large
         endpoint: QDRANT_PI_URL, // folded from v2 qdrant field
         // distanceMetric omitted — v2 doesn't record it (FOLD_SPEC "?"); Joe confirms
       },
@@ -332,6 +332,7 @@ export const domains: DomainManifest = {
         "medical-heatmap, nomic-embed-text, 768-D) alongside the local vault — " +
         "kept here as a note so the fact isn't dropped; Joe confirms whether " +
         "the backup path stays canonical.",
+      provenance: "pipeline-test-fixture", // data run to validate mapping, not a canonical corpus
     },
 
     // ─── OPERATIONAL: repo husk, fingerprint ──────────────────────────
@@ -351,11 +352,17 @@ export const domains: DomainManifest = {
         temporalAxis: false,
       },
       store: {
+        kind: "qdrant",
+        location: "husk-whiteglove",
+        embedModel: null,
+        endpoint: QDRANT_PI_URL,
+        distanceMetric: null,
+      },
+      secondaryStore: {
         kind: "vault-index",
         location: "vault/index.json",
         embedModel: null,
-        endpoint: null, // local-file store (FOLD_SPEC "vault path→null")
-        distanceMetric: null, // hamming index, not a vector-store metric
+        role: "local-fast-path",
       },
       ingest: {
         script: "brain/indexer/build-index.ts", // FOLD_SPEC — builds the local SimHash vault
@@ -379,6 +386,7 @@ export const domains: DomainManifest = {
           note: "Same uncalibrated placeholder as medical-corpus.",
         },
       },
+      provenance: "pipeline-test-fixture", // WhiteGlove-resident legal data is a test fixture validating the mapping process, not a canonical domain corpus.
       notes:
         "Real-world result: Open Claw source fed through this path surfaced " +
         "vulns it hadn't seen by reading its own source directly. [STATED] " +
@@ -414,9 +422,10 @@ export const domains: DomainManifest = {
         endpoint: QDRANT_PI_URL, // folded from v2 qdrant field
         // distanceMetric omitted — v2 doesn't record it (FOLD_SPEC "?"); Joe confirms
       },
-      // ingest omitted deliberately — NOT YET FOLDED: v2 has no ingest_script for
-      // this domain and eve_v2.py lives in the property-hydra repo (unreachable
-      // from here). FOLD_SPEC cell "eve_v2 ingest" needs Joe to supply the real path.
+      ingest: {
+        script: "agents/ingest_eve.py", // [VERIFIED] runs in property-hydra repo
+        refineryStage: null,
+      },
       receptacle: {
         kind: "cli-query",
         ref: "property-hydra query", // [STATED]
@@ -463,7 +472,7 @@ export const domains: DomainManifest = {
       store: {
         kind: "qdrant",
         location: "spectral-heatmap", // [CONFIRM→v2 AGREES it's shared] v2 also points finance at spectral-heatmap
-        embedModel: "nomic-embed-text", // [DISAGREEMENT #1 sibling — DO NOT LOCK] v2 says mxbai-embed-large; Joe arbitrates
+        embedModel: "mxbai-embed-large", // [VERIFIED] all ingest scripts hardcode mxbai-embed-large
         endpoint: QDRANT_PI_URL, // folded from v2 qdrant field
         // distanceMetric omitted — v2 doesn't record it (FOLD_SPEC "?"); Joe confirms
       },

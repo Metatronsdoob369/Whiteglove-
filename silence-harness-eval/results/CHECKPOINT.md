@@ -209,3 +209,15 @@ generated file omits it; if agent role-routing ever needs it, add an optional
   follow-up. Flagged, not actioned: that script drives live ingests on Joe's
   side.
 
+
+### Pre-Merge Manifest Corrections & Fact Arbitration
+
+The PR #26 fact arbitration verified the following configuration rules, which were applied to `spectral-config/config/domains.config.ts` before merge:
+
+1. **Roblox/Finance Embed Model:** Both models are active on the Pi, but all ingest scripts strictly use `mxbai-embed-large`. The v3 manifest was corrected from `nomic-embed-text` to `mxbai-embed-large`.
+2. **property-data Status:** Confirmed operational. The `hydra-unclaimed` collection exists on the Pi (3072-D, 500 points). Ingest path verified as `agents/ingest_eve.py`.
+3. **repo-husk Stores:** Both the local vault and Pi Qdrant collections exist. The manifest was updated to set Qdrant `husk-whiteglove` as the canonical store, and the local vault as the secondary mirror (`local-fast-path`).
+4. **medical backup:** Pi collection `medical-heatmap` exists (29,333 points, 768-D). Note retained.
+5. **arbiter endpoint:** Left as `null`. Arbiter routes through LawLibra's HTTP seam, not directly to Qdrant.
+
+Additionally, a `provenance` field was added to the DomainPipeline schema. The `medical-corpus` and the WhiteGlove-resident legal data (in `repo-husk`) have been marked as `pipeline-test-fixture` to formally distinguish them from production corpora like LawLibra's canonical legal-heatmap.

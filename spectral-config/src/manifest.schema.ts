@@ -179,6 +179,33 @@ export const DomainPipeline = z.object({
     })
     .optional(),
 
+  /**
+   * Secondary store for dual-store pipelines. Canonical store lives in
+   * `store`; if a mirror/backup/local-fast-path also exists, record it
+   * here so agents know both exist without guessing which is primary.
+   */
+  secondaryStore: z
+    .object({
+      kind: StoreKind,
+      location: z.string().min(1),
+      embedModel: z.string().nullable(),
+      role: z.string().min(1), // e.g. "local-fast-path", "backup", "mirror"
+    })
+    .optional(),
+
+  /**
+   * Distinguishes test-fixture data from production corpora. Pipelines
+   * whose data exists only to validate the mapping process — not as
+   * canonical domain knowledge — are marked here so no agent mistakes
+   * a validation artifact for a shipping corpus.
+   */
+  provenance: z
+    .enum([
+      "production",            // canonical domain corpus, ships
+      "pipeline-test-fixture", // data run to validate the mapping, not the domain
+    ])
+    .optional(),
+
   /** free-form provenance so an agent knows how alive this path is */
   notes: z.string().optional(),
 });

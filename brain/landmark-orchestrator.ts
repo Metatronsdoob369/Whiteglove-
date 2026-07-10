@@ -48,8 +48,8 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   shardDir: "/Volumes/ARCHIVE/Emergency_Information/WhiteGlove_Agent_Husk/brain/shards/shattered",
   ollamaModel: "qwen2.5-coder:7b",
   ollamaUrl: "http://127.0.0.1:11434",
-  similarityThreshold: 0.2858, // Calibrated: shard-to-shard drift detection
-  queryThreshold: 0.45,        // Calibrated: query-to-shard retrieval (empirical)
+  similarityThreshold: 0.2858, // Shard-to-shard drift detection — predates the 2026-07-10 tokenizer/IDF change; recalibrate before trusting
+  queryThreshold: 0.325,       // Calibrated 2026-07-10: last zero-false-answer point on the 162-query / 131-shard code self-corpus sweep (see silence-harness-eval/results/CHECKPOINT.md). Per-deployment — re-sweep on your corpus.
   maxContextShards: 3,
   maxResponseTokens: 200,
   cacheCapacity: 500
@@ -124,6 +124,7 @@ export class LandmarkOrchestrator {
    * Called once at startup or during the Dream cycle.
    */
   async saveIndex(filePath: string) {
+    const { weights, unseenWeight } = this.guard.getTokenWeights();
     const data = {
       index: this.index.map((entry) => ({
         shardId: entry.shardId,
@@ -133,7 +134,10 @@ export class LandmarkOrchestrator {
         contentPreview: entry.contentPreview,
         frequency: entry.frequency
       })),
-      indexedCount: this.indexedCount
+      indexedCount: this.indexedCount,
+      // IDF weights are part of the index: signatures are meaningless
+      // without the weights they were signed with.
+      tokenWeights: weights ? { entries: [...weights.entries()], unseenWeight } : null
     };
     await fs.promises.writeFile(filePath, JSON.stringify(data));
     console.log(`💾 [HUSK] Index persisted to ${filePath}`);
@@ -155,6 +159,12 @@ export class LandmarkOrchestrator {
           frequency: row.frequency || 0
         });
       }
+    }
+    if (data.tokenWeights?.entries) {
+      this.guard.setTokenWeights(new Map(data.tokenWeights.entries), data.tokenWeights.unseenWeight);
+    } else {
+      console.warn(`⚠️ [HUSK] Index has no persisted token weights — it predates IDF signing. Rebuild the index.`);
+      this.guard.setTokenWeights(null);
     }
     this.indexedCount = this.index.length;
     this.initialized = true;
@@ -187,12 +197,15 @@ export class LandmarkOrchestrator {
     let processed = 0;
     let skipped = 0;
 
+    // Pass 1 — read shards. IDF weights are corpus statistics, so every
+    // shard must be read before any signature is computed.
+    const pending: Array<{ file: string; shard: any }> = [];
     for (let i = 0; i < files.length; i++) {
-      if (limit && processed >= limit) break;
-      
+      if (limit && pending.length >= limit) break;
+
       const file = files[i];
       const filePath = path.join(this.config.shardDir, file);
-      
+
       try {
         const stats = fs.statSync(filePath);
         if (stats.size > MAX_FILE_SIZE) {
@@ -211,27 +224,36 @@ export class LandmarkOrchestrator {
           continue;
         }
 
-        const signature = this.guard.simHash128FromText(shard.content, "corpus");
-
-        this.index.push({
-          shardId: shard.id || shard.shardId || file.replace(".json", ""),
-          title: shard.title || "Untitled",
-          signature,
-          source: shard.source || "unknown",
-          contentPreview: shard.content.slice(0, 100).replace(/\n/g, " "),
-          frequency: 0
-        });
-
-        processed++;
-
-        // Every BATCH_SIZE files, yield to the event loop to allow GC
-        if (processed % BATCH_SIZE === 0) {
-          await new Promise(resolve => setImmediate(resolve));
-        }
-
+        pending.push({ file, shard });
       } catch (err) {
         console.error(`❌ [ORCHESTRATOR] Error processing shard ${file}:`, err);
         skipped++;
+      }
+    }
+
+    // IDF weights over the whole corpus — shards and queries must be signed
+    // with the same weights, so they live on the signing guard.
+    const idf = this.guard.computeIdfWeights(pending.map((p) => p.shard.content));
+    this.guard.setTokenWeights(idf.weights, idf.unseenWeight);
+
+    // Pass 2 — sign and index.
+    for (const { file, shard } of pending) {
+      const signature = this.guard.simHash128FromText(shard.content, "corpus");
+
+      this.index.push({
+        shardId: shard.id || shard.shardId || file.replace(".json", ""),
+        title: shard.title || "Untitled",
+        signature,
+        source: shard.source || "unknown",
+        contentPreview: shard.content.slice(0, 100).replace(/\n/g, " "),
+        frequency: 0
+      });
+
+      processed++;
+
+      // Every BATCH_SIZE shards, yield to the event loop to allow GC
+      if (processed % BATCH_SIZE === 0) {
+        await new Promise(resolve => setImmediate(resolve));
       }
     }
 

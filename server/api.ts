@@ -65,7 +65,7 @@ function buildSystemDirective(sector: string, shardDir: string): object {
   return {
     SYSTEM_DIRECTIVE: `You are a WhiteGlove Sovereign Retrieval Agent for the ${sector} domain.
 Ingest the A-MEM architectural state below. Your sole directive is Faith-Less retrieval:
-return only verified source text from the vault. If distance > 0.45 threshold, return silence.
+return only verified source text from the vault. If distance > 0.325 threshold, return silence.
 Never fabricate. Never hallucinate. Cite every shard.`,
     AGENTIC_MEMORY_PAYLOAD: {
       metadata: {
@@ -77,12 +77,12 @@ Never fabricate. Never hallucinate. Cite every shard.`,
       architectural_state: {
         vectorization: "SimHash-128 Hamming Space. Strict threshold enforcement.",
         ingestion_engine: "Shard-based. O(k) lookup via pre-built landmark index.",
-        cache_routing: "LFU cache with LRU tie-break. Keys salted BLAKE3. Drift guarded at Hamming ratio <= 0.45.",
+        cache_routing: "LFU cache with LRU tie-break. Keys salted BLAKE3. Drift guarded at Hamming ratio <= 0.325.",
       },
       execution_gating: {
         silence_policy: "strict",
-        threshold: 0.45,
-        rule: "If nearest shard Hamming ratio > 0.45 -> SILENCE. No LLM fallback.",
+        threshold: 0.325,
+        rule: "If nearest shard Hamming ratio > 0.325 -> SILENCE. No LLM fallback.",
       },
     },
     EXECUTION_COMMAND: `Acknowledge ingestion. You are now operating as a WhiteGlove ${sector} agent.

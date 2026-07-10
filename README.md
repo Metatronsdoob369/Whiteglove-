@@ -65,10 +65,12 @@ Two separate Hamming thresholds are used — tight for shard integrity, wide for
 
 | Context | Threshold | Reason |
 |---|---|---|
-| Shard-to-shard drift detection | `0.2858` | Tight — flags genuine content drift between shards |
-| Query-to-shard retrieval | `0.45` | Wide — queries use different vocabulary than source text; empirically calibrated against closest real query-shard pair at `0.3281` |
+| Shard-to-shard drift detection | `0.2858` | Tight — flags genuine content drift between shards. **Predates the 2026-07-10 tokenizer/IDF change — recalibrate before trusting.** |
+| Query-to-shard retrieval | `0.325` | Calibrated 2026-07-10 on a 162-query / 131-shard self-corpus sweep: the last zero-false-answer point (the closest unanswerable query lands at `0.3281`). Silence-first by design — raising it trades false answers for recall. |
 
-These are not arbitrary. They were derived from calibration runs against the actual corpus. Changing them changes the silence/recall tradeoff.
+Thresholds are per-deployment calibration snapshots, not constants: re-run the
+`silence-harness-eval` sweep against your corpus before trusting either number.
+Changing them changes the silence/recall tradeoff.
 
 ---
 

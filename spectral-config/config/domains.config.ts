@@ -312,17 +312,21 @@ export const domains: DomainManifest = {
       silence: {
         enabled: true,
         signal: "hamming",
-        threshold: 0.35, // [CONFIRM] smoke-set value only; NOT calibrated
+        threshold: 0.35, // placeholder — NOT calibrated for the medical corpus
         closerIs: "lower",
         calibration: {
           calibrated: false,
-          corpus: "code self-corpus (113 shards)",
-          corpusSize: 113,
-          date: "2026-07-08",
+          corpus: null,
+          corpusSize: null,
+          date: null,
           note:
-            "0.35 came from a 6-query smoke set on a CODE corpus, post " +
-            "salt-fix. Real medical corpus + 150-query sweep pending. Do " +
-            "not ship this number.",
+            "The gate MECHANISM is proven and calibrated on repo-husk " +
+            "(0.325, 2026-07-10, tokenizer+IDF stack), but this domain's " +
+            "corpus has never been swept — run the 150-query harness " +
+            "against the real medical vault on the Pi before shipping any " +
+            "number here. Do not ship this placeholder. Note: " +
+            "broseidon-indexer.ts and medical-test.ts still pin 0.45 from " +
+            "the pre-fix era.",
         },
       },
       notes:
@@ -375,14 +379,20 @@ export const domains: DomainManifest = {
       silence: {
         enabled: true,
         signal: "hamming",
-        threshold: 0.35, // [CONFIRM] same smoke-set caveat
+        threshold: 0.325, // last zero-false-answer point on the calibration sweep
         closerIs: "lower",
         calibration: {
-          calibrated: false,
-          corpus: "WhiteGlove code self-corpus (113 shards)",
-          corpusSize: 113,
-          date: "2026-07-08",
-          note: "Same uncalibrated placeholder as medical-corpus.",
+          calibrated: true,
+          corpus: "WhiteGlove code self-corpus (131 shards, 162-query set: 56 grounded / 50 ungrounded / 56 adversarial)",
+          corpusSize: 131,
+          date: "2026-07-10",
+          note:
+            "Calibrated with code-aware tokenizer + set semantics + corpus-IDF " +
+            "vote weighting (known-issue #4 fix). Sweep: FA 0% / TS 100% at " +
+            "0.325; the closest unanswerable query lands at 0.3281, so the " +
+            "margin is thin — re-sweep after any corpus or tokenizer change. " +
+            "0.35 trades 10.4% FA for 2x true answers if a deployment prefers " +
+            "recall. Full curve: silence-harness-eval/results/CHECKPOINT.md.",
         },
       },
       provenance: "pipeline-test-fixture", // WhiteGlove-resident legal data is a test fixture validating the mapping process, not a canonical domain corpus.

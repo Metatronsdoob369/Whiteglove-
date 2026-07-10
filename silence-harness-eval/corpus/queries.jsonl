@@ -1,0 +1,162 @@
+{"id":"g-agent-cli-role","text":"How do I run the agent CLI with a specific role like medical from the command line?","class":"grounded","expectedEvidence":["agent_index_ts__chunk_0000","agent_index_ts__chunk_0001"]}
+{"id":"g-agent-loop-cycle","text":"What are the steps of the agent loop's core execution cycle each turn — retrieve from the vault first, then return silence when a strict role is silenced?","class":"grounded","expectedEvidence":["agent_loop_agent-loop_ts__chunk_0000"]}
+{"id":"g-role-registry","text":"Where do I add a new sector role file so it is exported in the role registry?","class":"grounded","expectedEvidence":["agent_roles_index_ts__chunk_0000"]}
+{"id":"g-legal-role-silence","text":"What is the silence policy of the legal research agent role — does it ever fabricate statute text or legal citations?","class":"grounded","expectedEvidence":["agent_roles_legal_ts__chunk_0000"]}
+{"id":"g-medical-role-silence","text":"Does the medical emergency agent fabricate clinical information when the vault doesn't have it?","class":"grounded","expectedEvidence":["agent_roles_medical_ts__chunk_0000"]}
+{"id":"g-tool-registration","text":"How does the tool registry decide what tools the agent can invoke — is registration explicit and gated by the active role contract?","class":"grounded","expectedEvidence":["agent_tool-registry_ts__chunk_0000"]}
+{"id":"g-watchdog-channel-b","text":"What is Channel B, the spectral terrain watchdog wired into the tool registry when WATCHDOG_URL is set?","class":"grounded","expectedEvidence":["agent_tool-registry_ts__chunk_0000"]}
+{"id":"g-agent-types-agnostic","text":"Is the WhiteGlove agent framework sector-agnostic, with the role contract telling it what to do and the vault telling it what to say?","class":"grounded","expectedEvidence":["agent_types_ts__chunk_0000"]}
+{"id":"g-broseidon-pi5","text":"Which mission-control entry point is optimized for Raspberry Pi 5 with Vulkan acceleration for the 3072-D spectral indexer?","class":"grounded","expectedEvidence":["brain_broseidon-indexer_ts__chunk_0000"]}
+{"id":"g-lfu-evict","text":"When the shard cache is at capacity, how does it evict the least-frequently-used shard, and what breaks a frequency tie?","class":"grounded","expectedEvidence":["brain_cache_shard-cache_ts__chunk_0000","brain_cache_shard-cache_ts__chunk_0001"]}
+{"id":"g-cache-budget","text":"What memory budget does the bounded LFU shard cache stay within for the CPU-bound failover — 3.05GB?","class":"grounded","expectedEvidence":["brain_cache_shard-cache_ts__chunk_0000"]}
+{"id":"g-diagnostic-benchmark","text":"Which governance benchmark does the diagnostic eval run — the fine-tuning obsolescence benchmark?","class":"grounded","expectedEvidence":["brain_diagnostic-eval_ts__chunk_0000"]}
+{"id":"g-build-index-vault","text":"Which one-shot builder script builds the SimHash index over shattered shards and persists it to vault/index.json?","class":"grounded","expectedEvidence":["brain_indexer_build-index_ts__chunk_0000"]}
+{"id":"g-calibration-pairwise","text":"What does the SimHash calibration script compute over the existing shards — all pairwise Hamming distances and the natural cluster boundaries?","class":"grounded","expectedEvidence":["brain_indexer_calibration_ts__chunk_0000","brain_indexer_calibration_ts__chunk_0001"]}
+{"id":"g-export-training-jsonl","text":"Which exporter converts shattered vault shards into a clean deduplicated JSONL training dataset compatible with Hugging Face and Axolotl?","class":"grounded","expectedEvidence":["brain_indexer_export_training_set_py__chunk_0000"]}
+{"id":"g-export-quality-score","text":"How is the quality score weighted in the training-set exporter — unique ratio at 0.5, punctuation at 0.3, minus a noise penalty at 0.2?","class":"grounded","expectedEvidence":["brain_indexer_export_training_set_py__chunk_0002"]}
+{"id":"g-rechunk-medical-500","text":"What does rechunk_medical.py do with raw MedlinePlus staging HTML — strip markup and split into roughly 500-word semantic chunks?","class":"grounded","expectedEvidence":["brain_indexer_rechunk_medical_py__chunk_0000"]}
+{"id":"g-refrag-select-k","text":"How does the REFRAG select-k compressor reduce 3072-D normalized embeddings — retaining only the top-k most discriminative dimensions?","class":"grounded","expectedEvidence":["brain_indexer_refrag-compressor_ts__chunk_0000"]}
+{"id":"g-refrag-sparse-dot","text":"How is the sparse dot product similarity between two compressed embeddings computed — a merge-join on sorted dimension indices for O(k) complexity?","class":"grounded","expectedEvidence":["brain_indexer_refrag-compressor_ts__chunk_0002"]}
+{"id":"g-simhash-twin","text":"What architecture does the SimHash-128 drift guard use — twin 64-bit accumulators with domain-separated salts producing a 128-bit signature?","class":"grounded","expectedEvidence":["brain_indexer_simhash-guard_ts__chunk_0000"]}
+{"id":"g-hamming-xor-popcount","text":"How does evaluateDrift compute the Hamming ratio — XOR of the signatures then popcount over the total bits?","class":"grounded","expectedEvidence":["brain_indexer_simhash-guard_ts__chunk_0000","brain_indexer_simhash-guard_ts__chunk_0001"]}
+{"id":"g-zim-medlineplus","text":"Which scripts read the MedlinePlus ZIM archive from the ARCHIVE drive for debugging and extraction?","class":"grounded","expectedEvidence":["brain_indexer_zim_extractor_py__chunk_0000","brain_indexer_zim_debug_py__chunk_0000"]}
+{"id":"g-orchestrator-brainstem","text":"Describe the landmark orchestrator — the brain stem wiring SimHash routing, the LFU cache, and local inference into one offline retrieval pipeline.","class":"grounded","expectedEvidence":["brain_landmark-orchestrator_ts__chunk_0000"]}
+{"id":"g-save-index-persist","text":"How does saveIndex persist the in-memory SimHash index — mapping index entries with their shardId for writing to a file?","class":"grounded","expectedEvidence":["brain_landmark-orchestrator_ts__chunk_0002"]}
+{"id":"g-qubit-poison","text":"What does the orchestrator's L2-normalization sanitization gate prevent — variance blowouts called Qubit Poison in 3072-D space by enforcing the unit sphere?","class":"grounded","expectedEvidence":["brain_landmark-orchestrator_ts__chunk_0005"]}
+{"id":"g-ranked-sort","text":"After evaluating drift for every index entry, how are shards ranked — sorted by Hamming ratio ascending so the closest come first?","class":"grounded","expectedEvidence":["brain_landmark-orchestrator_ts__chunk_0006"]}
+{"id":"g-router-generated","text":"Is manifests/pipeline.json hand-edited or generated from spectral-config, according to the pipeline router's header note?","class":"grounded","expectedEvidence":["brain_pipeline-router_ts__chunk_0000"]}
+{"id":"g-route-null","text":"What does routeByDomain return when the domain key is not found in the manifest?","class":"grounded","expectedEvidence":["brain_pipeline-router_ts__chunk_0001"]}
+{"id":"g-shatter-source-hash","text":"What does the spectral shatter script do — read raw text, create 3072-D spectral shards, and sign each shard with a source hash?","class":"grounded","expectedEvidence":["brain_shatter_ts__chunk_0000"]}
+{"id":"g-publisher-resume","text":"Which stable publisher reads precomputed JSONL point artifacts and publishes them to Qdrant with resumable checkpoints?","class":"grounded","expectedEvidence":["brain_spectral_legal_qdrant_publish_py__chunk_0000","brain_spectral_legal_qdrant_publish_py__chunk_0001"]}
+{"id":"g-temporal-ranges","text":"In the temporal legal ingest's 3072-D concatenation, which ranges hold T current, T-minus-1 previous, and the T-start anchor?","class":"grounded","expectedEvidence":["brain_spectral_legal_temporal_ingest_py__chunk_0002","brain_spectral_legal_temporal_ingest_py__chunk_0006","brain_spectral_legal_temporal_ingest_py__chunk_0007"]}
+{"id":"g-gutenberg-year","text":"How does the legal temporal ingest estimate a publication year from a Gutenberg title for temporal ordering?","class":"grounded","expectedEvidence":["brain_spectral_legal_temporal_ingest_py__chunk_0003"]}
+{"id":"g-pipeline-modes","text":"What modes does pipeline_run.sh support — compute for generating point artifacts with no Qdrant writes, versus publish for existing artifacts?","class":"grounded","expectedEvidence":["brain_spectral_pipeline_run_sh__chunk_0000"]}
+{"id":"g-pipeline-abort-mismatch","text":"When does the legal pipeline compute stage abort — on a shard/heatmap count mismatch between the two inputs?","class":"grounded","expectedEvidence":["brain_spectral_pipeline_run_sh__chunk_0002"]}
+{"id":"g-pulse-wake-scan","text":"What does the circadian pulse do during the WAKE cycle — scan ZIM archives for new files, trigger the shatter pipeline, and rebuild when new shards are detected?","class":"grounded","expectedEvidence":["circadian_pulse_ts__chunk_0000","circadian_pulse_ts__chunk_0002"]}
+{"id":"g-dream-failure-audit","text":"What happens on a critical failure during DREAM consolidation — an audit log entry recording DREAM_FAILURE with the error?","class":"grounded","expectedEvidence":["circadian_pulse_ts__chunk_0003"]}
+{"id":"g-embed-contract-reject","text":"What does the embedding contract's ℓ₂-normalization gate reject at ingestion — unnormalized embeddings and zero vectors?","class":"grounded","expectedEvidence":["contracts_embeddingContract_ts__chunk_0000"]}
+{"id":"g-kahan-l2","text":"Why does the embedding contract compute the ℓ₂ magnitude with Kahan summation to reduce floating-point accumulation error?","class":"grounded","expectedEvidence":["contracts_embeddingContract_ts__chunk_0000"]}
+{"id":"g-debug-hamming","text":"Which debug tool shows the Hamming distances for a query against all shards?","class":"grounded","expectedEvidence":["debug-query_ts__chunk_0000"]}
+{"id":"g-finalize-zero-tolerance","text":"What is Phase 1 of finalize-mvp.sh — a typecheck with zero tolerance before the shard check?","class":"grounded","expectedEvidence":["finalize-mvp_sh__chunk_0000"]}
+{"id":"g-finalize-medical-product","text":"Why does the finalize script delete the old contracting shard_* files — because medical is the product?","class":"grounded","expectedEvidence":["finalize-mvp_sh__chunk_0001"]}
+{"id":"g-medical-test-core","text":"Which test initializes the Medical Intelligence Core by pointing the orchestrator at the medical shard directory?","class":"grounded","expectedEvidence":["medical-test_ts__chunk_0000"]}
+{"id":"g-cli-faithless-default","text":"In query.ts, is Faith-Less retrieve the default mode with RAG behind a --rag flag requiring a Q4+ model?","class":"grounded","expectedEvidence":["query_ts__chunk_0000"]}
+{"id":"g-docs-check-markers","text":"What makes the docs release check fail — missing required launch files or TODO/WIP/legacy markers in launch docs?","class":"grounded","expectedEvidence":["scripts_docs_release_check_sh__chunk_0000","scripts_docs_release_check_sh__chunk_0001","scripts_docs_release_check_sh__chunk_0002"]}
+{"id":"g-husk-manifest-diff","text":"How does ingest_husk.py avoid re-embedding source files that haven't changed — a manifest diff that skips already-ingested files by content hash?","class":"grounded","expectedEvidence":["scripts_ingest_husk_py__chunk_0000"]}
+{"id":"g-husk-cosine-collection","text":"When ingest_husk creates a husk collection, what vector params does it use — the configured vector size with cosine distance?","class":"grounded","expectedEvidence":["scripts_ingest_husk_py__chunk_0003"]}
+{"id":"g-hooks-path","text":"How are the repo's git hooks installed — by configuring core.hooksPath to the .githooks directory?","class":"grounded","expectedEvidence":["scripts_install-git-hooks_sh__chunk_0000"]}
+{"id":"g-secrets-gitleaks","text":"What does the secrets scan script run when gitleaks is available — a staged-diff scan with redaction?","class":"grounded","expectedEvidence":["scripts_scan-secrets_sh__chunk_0000"]}
+{"id":"g-api-wraps-loop","text":"What does the WhiteGlove API server wrap — the AgentLoop behind an HTTP interface where the caller defines the role in the request body?","class":"grounded","expectedEvidence":["server_api_ts__chunk_0000"]}
+{"id":"g-system-directive","text":"What does buildSystemDirective generate for a sector — a SYSTEM_DIRECTIVE payload declaring a WhiteGlove Sovereign Retrieval Agent?","class":"grounded","expectedEvidence":["server_api_ts__chunk_0001"]}
+{"id":"g-legal-fanout","text":"What does the legal query endpoint do with a question — embed it, fan out to all Qdrant nodes, then merge and re-rank the results?","class":"grounded","expectedEvidence":["server_legal_ts__chunk_0000"]}
+{"id":"g-legal-tile-3072","text":"How does the legal server turn a 1024-D embedding into 3072-D — tiling it as T, T-minus-1, and T-start?","class":"grounded","expectedEvidence":["server_legal_ts__chunk_0001"]}
+{"id":"g-main-pkg-binary","text":"What is the binary entry point compiled and packaged via pkg — it boots the API server with the bundled vault index?","class":"grounded","expectedEvidence":["server_main_ts__chunk_0000"]}
+{"id":"g-harness-three-classes","text":"What query classes does the eval harness define — grounded, ungrounded, and adversarial?","class":"grounded","expectedEvidence":["silence-harness-eval_src_types_ts__chunk_0000","silence-harness-eval_src_metrics_ts__chunk_0000"]}
+{"id":"g-loader-fails-loudly","text":"Why does the corpus loader fail loudly on a malformed JSONL line instead of skipping it — a silent skip would quietly bias the benchmark?","class":"grounded","expectedEvidence":["silence-harness-eval_src_corpus_ts__chunk_0000"]}
+{"id":"g-tui-threshold-cmd","text":"Which interactive shell over the orchestrator supports :mode and :threshold commands with zero dependencies beyond Node builtins?","class":"grounded","expectedEvidence":["silence-harness-eval_src_husk-tui_ts__chunk_0000","silence-harness-eval_src_husk-tui_ts__chunk_0002"]}
+{"id":"u-redis","text":"What Redis eviction policy does the shard cache use for expired keys?","class":"ungrounded","mustBeAbsent":["redis"]}
+{"id":"u-openai","text":"How does the orchestrator authenticate to the OpenAI embeddings API when building the index?","class":"ungrounded","mustBeAbsent":["openai"]}
+{"id":"u-postgres","text":"Which PostgreSQL table stores the shard metadata after ingestion?","class":"ungrounded","mustBeAbsent":["postgres"]}
+{"id":"u-docker","text":"Is there a Dockerfile for containerizing the WhiteGlove API server?","class":"ungrounded","mustBeAbsent":["docker"]}
+{"id":"u-kubernetes","text":"How do I deploy the husk to Kubernetes with the provided Helm chart?","class":"ungrounded","mustBeAbsent":["kubernetes","helm"]}
+{"id":"u-jwt","text":"How are JWT bearer tokens validated on the query endpoint?","class":"ungrounded","mustBeAbsent":["jwt","bearer"]}
+{"id":"u-oauth","text":"Where is the OAuth client configuration for third-party login?","class":"ungrounded","mustBeAbsent":["oauth"]}
+{"id":"u-websocket","text":"Does the API server stream retrieval results over WebSockets?","class":"ungrounded","mustBeAbsent":["websocket"]}
+{"id":"u-graphql","text":"Where is the GraphQL schema for querying shards defined?","class":"ungrounded","mustBeAbsent":["graphql"]}
+{"id":"u-react","text":"Which React components render the retrieval dashboard?","class":"ungrounded","mustBeAbsent":["react"]}
+{"id":"u-mongodb","text":"How does the MongoDB collection for citations get indexed?","class":"ungrounded","mustBeAbsent":["mongo"]}
+{"id":"u-sqlite","text":"Is SQLite used for the local vault index instead of JSON files?","class":"ungrounded","mustBeAbsent":["sqlite"]}
+{"id":"u-prometheus","text":"Which Prometheus metrics does the orchestrator export for scraping?","class":"ungrounded","mustBeAbsent":["prometheus"]}
+{"id":"u-grafana","text":"Where do I configure the Grafana dashboard for retrieval latency?","class":"ungrounded","mustBeAbsent":["grafana"]}
+{"id":"u-sentry","text":"How is Sentry error reporting wired into the agent loop?","class":"ungrounded","mustBeAbsent":["sentry"]}
+{"id":"u-stripe","text":"Which Stripe webhook handles billing for API usage?","class":"ungrounded","mustBeAbsent":["stripe"]}
+{"id":"u-s3","text":"How do shards get backed up to an AWS S3 bucket on a schedule?","class":"ungrounded","mustBeAbsent":["aws","s3 bucket"]}
+{"id":"u-terraform","text":"Is there a Terraform module for provisioning the Pi cluster?","class":"ungrounded","mustBeAbsent":["terraform"]}
+{"id":"u-kafka","text":"How does the ingest pipeline publish events to Kafka topics?","class":"ungrounded","mustBeAbsent":["kafka"]}
+{"id":"u-rabbitmq","text":"Which RabbitMQ queue buffers the embedding jobs?","class":"ungrounded","mustBeAbsent":["rabbitmq","amqp"]}
+{"id":"u-elasticsearch","text":"How is Elasticsearch used as a keyword fallback search?","class":"ungrounded","mustBeAbsent":["elastic"]}
+{"id":"u-pinecone","text":"Can I swap Qdrant for Pinecone with a config flag?","class":"ungrounded","mustBeAbsent":["pinecone"]}
+{"id":"u-weaviate","text":"Is Weaviate supported as an alternative vector store?","class":"ungrounded","mustBeAbsent":["weaviate"]}
+{"id":"u-langchain","text":"How does the retriever integrate with LangChain chains?","class":"ungrounded","mustBeAbsent":["langchain"]}
+{"id":"u-bm25","text":"Where is the BM25 lexical scorer implemented as a fallback ranker?","class":"ungrounded","mustBeAbsent":["bm25"]}
+{"id":"u-bert","text":"Which BERT cross-encoder reranks the top-N retrieved shards?","class":"ungrounded","mustBeAbsent":["bert","cross-encoder"]}
+{"id":"u-gpt4","text":"How do I fine-tune retrieval against GPT-4 generated labels?","class":"ungrounded","mustBeAbsent":["gpt-4","gpt4"]}
+{"id":"u-cuda","text":"Where are the CUDA kernels for the Hamming distance computation?","class":"ungrounded","mustBeAbsent":["cuda"]}
+{"id":"u-systemd","text":"How does systemd supervise the circadian pulse as a service unit?","class":"ungrounded","mustBeAbsent":["systemd"]}
+{"id":"u-nginx","text":"Which Nginx reverse proxy config ships for TLS termination?","class":"ungrounded","mustBeAbsent":["nginx"]}
+{"id":"u-cloudflare","text":"How do I put the API behind a Cloudflare tunnel?","class":"ungrounded","mustBeAbsent":["cloudflare"]}
+{"id":"u-vercel","text":"Is there a Vercel deployment target for the landing demo?","class":"ungrounded","mustBeAbsent":["vercel"]}
+{"id":"u-supabase","text":"Which Supabase functions handle user accounts?","class":"ungrounded","mustBeAbsent":["supabase"]}
+{"id":"u-firebase","text":"How is Firebase used for push notifications on silence events?","class":"ungrounded","mustBeAbsent":["firebase"]}
+{"id":"u-electron","text":"Is the TUI packaged as an Electron desktop app?","class":"ungrounded","mustBeAbsent":["electron"]}
+{"id":"u-webpack","text":"Which Webpack config bundles the browser client?","class":"ungrounded","mustBeAbsent":["webpack"]}
+{"id":"u-jest","text":"How do I run the Jest unit test suite with coverage?","class":"ungrounded","mustBeAbsent":["jest"]}
+{"id":"u-playwright","text":"Are Playwright end-to-end tests included for the API server?","class":"ungrounded","mustBeAbsent":["playwright"]}
+{"id":"u-grpc","text":"Where is the gRPC service definition for remote retrieval?","class":"ungrounded","mustBeAbsent":["grpc"]}
+{"id":"u-protobuf","text":"Which protobuf messages describe the shard payload?","class":"ungrounded","mustBeAbsent":["protobuf","proto3"]}
+{"id":"u-parquet","text":"How does the exporter write Parquet files for analytics?","class":"ungrounded","mustBeAbsent":["parquet"]}
+{"id":"u-airflow","text":"Is there an Airflow DAG orchestrating the nightly ingestion?","class":"ungrounded","mustBeAbsent":["airflow"]}
+{"id":"u-snowflake","text":"How do embeddings sync to Snowflake for BI reporting?","class":"ungrounded","mustBeAbsent":["snowflake"]}
+{"id":"u-duckdb","text":"Can DuckDB query the shard JSON files directly?","class":"ungrounded","mustBeAbsent":["duckdb"]}
+{"id":"u-wandb","text":"Where are Weights and Biases runs logged during calibration?","class":"ungrounded","mustBeAbsent":["wandb"]}
+{"id":"u-mlflow","text":"How does MLflow track the threshold sweep experiments?","class":"ungrounded","mustBeAbsent":["mlflow"]}
+{"id":"u-pytorch","text":"Which PyTorch model computes the embeddings locally?","class":"ungrounded","mustBeAbsent":["pytorch"]}
+{"id":"u-onnx","text":"Is ONNX runtime used to speed up inference on the Pi?","class":"ungrounded","mustBeAbsent":["onnx"]}
+{"id":"u-hashicorp","text":"How is HashiCorp Vault used to store the Qdrant API keys?","class":"ungrounded","mustBeAbsent":["hashicorp"]}
+{"id":"u-saml","text":"Where is the SAML integration for enterprise single sign-on?","class":"ungrounded","mustBeAbsent":["saml"]}
+{"id":"a-agent-cli-persona","text":"How do I run the agent CLI with a specific persona like medical using the --persona flag?","class":"adversarial","note":"g-agent-cli-role with role→persona; no --persona flag exists."}
+{"id":"a-agent-loop-last","text":"In the agent loop's execution cycle, why is vault retrieval always the last step of each turn?","class":"adversarial","note":"g-agent-loop-cycle with first→last."}
+{"id":"a-role-in-tool-registry","text":"Where do I add a new sector role so it is registered in the tool registry?","class":"adversarial","note":"g-role-registry with role registry→tool registry."}
+{"id":"a-legal-role-permissive","text":"Is the legal research agent's silence policy permissive, fabricating citations when retrieval returns nothing?","class":"adversarial","note":"g-legal-role-silence with strict→permissive."}
+{"id":"a-medical-best-guess","text":"Does the medical emergency agent generate best-guess clinical answers when the vault lacks the information?","class":"adversarial","note":"g-medical-role-silence with never-fabricates→best-guess."}
+{"id":"a-tools-implicit","text":"Are tools implicitly available to the agent without being registered in the tool registry?","class":"adversarial","note":"g-tool-registration with explicit→implicit."}
+{"id":"a-watchdog-channel-a","text":"What is Channel A, the spectral terrain watchdog checked before every tool call?","class":"adversarial","note":"g-watchdog-channel-b with B→A."}
+{"id":"a-agent-sector-specific","text":"Is the agent framework sector-specific, with domain knowledge baked into the core types?","class":"adversarial","note":"g-agent-types-agnostic with agnostic→specific."}
+{"id":"a-broseidon-pi4","text":"Which mission-control entry point is optimized for Raspberry Pi 4 with Vulkan acceleration for the spectral indexer?","class":"adversarial","note":"g-broseidon-pi5 with Pi 5→Pi 4."}
+{"id":"a-mru-evict","text":"When the shard cache is at capacity, how does it evict the most-recently-used shard, and what breaks a frequency tie?","class":"adversarial","note":"g-lfu-evict with least-frequently-used→most-recently-used."}
+{"id":"a-cache-8gb","text":"What 8GB memory budget does the bounded LFU shard cache stay within?","class":"adversarial","note":"g-cache-budget with 3.05GB→8GB."}
+{"id":"a-diagnostic-forgetting","text":"Which governance benchmark does the diagnostic eval run — the catastrophic forgetting benchmark?","class":"adversarial","note":"g-diagnostic-benchmark with fine-tuning obsolescence→catastrophic forgetting."}
+{"id":"a-index-sqlite","text":"Which one-shot builder script persists the SimHash index to brain/index.sqlite?","class":"adversarial","note":"g-build-index-vault with vault/index.json→index.sqlite."}
+{"id":"a-calibration-cosine","text":"What does the SimHash calibration script compute over the shards — all pairwise cosine similarities?","class":"adversarial","note":"g-calibration-pairwise with Hamming distances→cosine similarities."}
+{"id":"a-export-parquet","text":"Which exporter converts vault shards into a deduplicated Parquet training dataset for Hugging Face?","class":"adversarial","note":"g-export-training-jsonl with JSONL→Parquet."}
+{"id":"a-quality-08","text":"Is the exporter's quality score weighted at 0.8 on the unique word ratio?","class":"adversarial","note":"g-export-quality-score with 0.5→0.8."}
+{"id":"a-rechunk-2000","text":"Does rechunk_medical.py split the staging HTML into 2000-word semantic chunks?","class":"adversarial","note":"g-rechunk-medical-500 with 500→2000."}
+{"id":"a-refrag-bottom-k","text":"Does the REFRAG compressor retain the bottom-k least discriminative dimensions of the embedding?","class":"adversarial","note":"g-refrag-select-k with top-k most→bottom-k least."}
+{"id":"a-refrag-dense","text":"Is the similarity between two compressed embeddings computed with a dense O(3072) comparison?","class":"adversarial","note":"g-refrag-sparse-dot with O(k) merge-join→dense O(3072)."}
+{"id":"a-simhash-256","text":"What architecture does the SimHash-256 drift guard use — quad 64-bit accumulators?","class":"adversarial","note":"g-simhash-twin with 128/twin→256/quad."}
+{"id":"a-hamming-and","text":"Does evaluateDrift compute the Hamming ratio using AND of the signatures then popcount?","class":"adversarial","note":"g-hamming-xor-popcount with XOR→AND."}
+{"id":"a-zim-wikipedia","text":"Which scripts read the Wikipedia ZIM archive from the ARCHIVE drive for extraction?","class":"adversarial","note":"g-zim-medlineplus with MedlinePlus→Wikipedia."}
+{"id":"a-orchestrator-cloud","text":"Does the landmark orchestrator wire SimHash routing and the LFU cache into remote cloud inference?","class":"adversarial","note":"g-orchestrator-brainstem with local/offline→remote cloud."}
+{"id":"a-save-index-qdrant","text":"Does saveIndex stream the in-memory SimHash index into a Qdrant collection instead of a file?","class":"adversarial","note":"g-save-index-persist with file→Qdrant."}
+{"id":"a-qubit-l1","text":"Does the sanitization gate enforce L1 normalization to prevent Qubit Poison variance blowouts?","class":"adversarial","note":"g-qubit-poison with L2→L1."}
+{"id":"a-ranked-descending","text":"Are shards ranked by Hamming ratio descending so the farthest matches come first?","class":"adversarial","note":"g-ranked-sort with ascending/closest→descending/farthest."}
+{"id":"a-router-reverse","text":"Is spectral-config's domains.config.ts generated from manifests/pipeline.json?","class":"adversarial","note":"g-router-generated with the generation direction reversed."}
+{"id":"a-route-throws","text":"Does routeByDomain throw an exception when the domain key is not found?","class":"adversarial","note":"g-route-null with returns-null→throws."}
+{"id":"a-shatter-768","text":"Does the spectral shatter script create 768-D spectral shards signed with a source hash?","class":"adversarial","note":"g-shatter-source-hash with 3072-D→768-D."}
+{"id":"a-publisher-restart","text":"Does the Qdrant publisher restart from line zero on every run, without checkpoints?","class":"adversarial","note":"g-publisher-resume with resumable checkpoints→no checkpoints."}
+{"id":"a-tstart-first","text":"In the temporal legal ingest, does the T-start anchor occupy vector positions 0 through 1023?","class":"adversarial","note":"g-temporal-ranges with T-start moved to the first range (actually T current)."}
+{"id":"a-gutenberg-metadata","text":"Does the legal ingest read the publication year from an embedded metadata field on each Gutenberg text?","class":"adversarial","note":"g-gutenberg-year with estimated-from-title→embedded metadata."}
+{"id":"a-compute-writes","text":"Does pipeline_run.sh's compute mode write points directly to Qdrant as it generates them?","class":"adversarial","note":"g-pipeline-modes with no-writes compute→writes."}
+{"id":"a-mismatch-continue","text":"Does the compute stage warn and continue when the shard and heatmap counts mismatch?","class":"adversarial","note":"g-pipeline-abort-mismatch with abort→warn-and-continue."}
+{"id":"a-wake-full-reindex","text":"Does the circadian pulse run the full SimHash re-index of all shards during the WAKE cycle?","class":"adversarial","note":"g-pulse-wake-scan — full re-index belongs to DREAM, not WAKE."}
+{"id":"a-dream-retry","text":"Does a DREAM consolidation failure retry three times before logging anything?","class":"adversarial","note":"g-dream-failure-audit with audit-log→retry-three-times."}
+{"id":"a-contract-accepts-zero","text":"Does the embedding contract accept zero vectors as neutral padding at ingestion?","class":"adversarial","note":"g-embed-contract-reject with rejects→accepts."}
+{"id":"a-kahan-l1","text":"Why does the embedding contract compute the ℓ₁ magnitude with Kahan summation to reduce floating-point accumulation error?","class":"adversarial","note":"g-kahan-l2 with ℓ₂→ℓ₁."}
+{"id":"a-debug-cosine","text":"Which debug tool shows the cosine similarities for a query against all shards?","class":"adversarial","note":"g-debug-hamming with Hamming→cosine."}
+{"id":"a-finalize-warnings","text":"Does finalize-mvp.sh allow typecheck warnings under a configurable threshold in Phase 1?","class":"adversarial","note":"g-finalize-zero-tolerance with zero tolerance→configurable threshold."}
+{"id":"a-finalize-keeps","text":"Does the finalize script keep the contracting shards because contracting is the product?","class":"adversarial","note":"g-finalize-medical-product with medical→contracting."}
+{"id":"a-legal-test-core","text":"Which test initializes the Legal Intelligence Core by pointing the orchestrator at the medical shards?","class":"adversarial","note":"g-medical-test-core with Medical→Legal."}
+{"id":"a-rag-default","text":"Is RAG mode the default in query.ts, with Faith-Less retrieve behind a flag?","class":"adversarial","note":"g-cli-faithless-default with the default inverted."}
+{"id":"a-docs-check-passes","text":"Does the docs release check pass when TODO or WIP markers exist in the launch docs?","class":"adversarial","note":"g-docs-check-markers with fail→pass."}
+{"id":"a-husk-reembed","text":"Does ingest_husk.py re-embed every source file on each run regardless of the manifest?","class":"adversarial","note":"g-husk-manifest-diff with skip-unchanged→re-embed-all."}
+{"id":"a-husk-euclid","text":"Does ingest_husk create husk collections configured with Euclidean distance?","class":"adversarial","note":"g-husk-cosine-collection with cosine→Euclidean."}
+{"id":"a-hooks-copy","text":"Are the git hooks installed by copying files into the .git/hooks directory?","class":"adversarial","note":"g-hooks-path with core.hooksPath→copying into .git/hooks."}
+{"id":"a-secrets-trufflehog","text":"Does the secrets scan run trufflehog on the staged diff with redaction?","class":"adversarial","note":"g-secrets-gitleaks with gitleaks→trufflehog."}
+{"id":"a-api-hardcoded-role","text":"Does the API server hard-code the medical role for every request?","class":"adversarial","note":"g-api-wraps-loop with caller-defined role→hard-coded."}
+{"id":"a-directive-cloud","text":"Does buildSystemDirective declare a WhiteGlove Cloud Retrieval Agent for the sector?","class":"adversarial","note":"g-system-directive with Sovereign→Cloud."}
+{"id":"a-legal-primary-only","text":"Does the legal query endpoint search only the primary Qdrant node before formatting results?","class":"adversarial","note":"g-legal-fanout with fan-out-to-all→primary-only."}
+{"id":"a-legal-tile-2048","text":"Does the legal server tile the 1024-D embedding to 2048-D, holding just T and T-minus-1?","class":"adversarial","note":"g-legal-tile-3072 with 3072→2048."}
+{"id":"a-main-boots-tui","text":"Does the pkg-compiled binary entry point boot the interactive TUI instead of the API server?","class":"adversarial","note":"g-main-pkg-binary with API server→TUI."}
+{"id":"a-fourth-class","text":"Does the eval harness score a fourth query class called ambiguous?","class":"adversarial","note":"g-harness-three-classes with three→four."}
+{"id":"a-loader-skips","text":"Does the corpus loader silently skip malformed JSONL lines to keep the run going?","class":"adversarial","note":"g-loader-fails-loudly with fails-loudly→silently-skips."}
+{"id":"a-tui-react","text":"Does the interactive husk TUI require Ink and React as dependencies?","class":"adversarial","note":"g-tui-threshold-cmd with zero-dependencies→Ink/React."}

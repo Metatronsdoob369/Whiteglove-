@@ -241,3 +241,82 @@ Additionally, a `provenance` field was added to the DomainPipeline schema. The `
   arbitration list.
 - Suggestion (not actioned): add `npm run typecheck && npm run check:refusal`
   in `spectral-config/` to quality.yml so manifest regressions gate PRs.
+
+
+## Phase 4 — silence-gate calibration (2026-07-10, Fable; Tasks 10–11 CLOSED)
+
+Branch `feat/silence-gate-calibration`. Everything reproducible from committed
+artifacts: `corpus/queries.jsonl` (162 queries), `results/CAL-PRE-TOKENIZER.*`,
+`results/CAL-POST-TOKENIZER.*`, `results/RANKS-PRE.json`, `results/RANKS-POST.json`.
+
+### Task 10 — the real corpus
+
+162 queries against the 131-shard repo self-corpus (57 source files):
+**56 grounded** (evidence IDs verified to exist), **50 ungrounded** (every
+premise term machine-verified absent via word-boundary grep), **56 adversarial**
+(one-entity swaps of grounded queries). `src/check-corpus.ts` enforces all
+invariants — it caught 2 authoring premise bugs (substring false-positives)
+before any number was trusted. 0 hard failures, 0 weak-overlap warnings.
+
+### Known-issue #4 fix — three measured steps
+
+Baseline exposed how broken whitespace tokenization was at corpus scale:
+**median grounded evidence rank 30/131 and NEGATIVE separation** — wrong
+shards scored closer than right evidence, on average.
+
+| tokenizer step | median rank | top-1 | top-3 | top-10 | negatives' closest |
+|---|---|---|---|---|---|
+| whitespace (baseline) | 30 | 7.1% | 16.1% | 33.9% | 0.2656 |
+| + code-aware split | 13 | 16.1% | 21.4% | 44.6% | 0.2734 |
+| + set semantics | 11 | 14.3% | 32.1% | 50.0% | 0.2891 |
+| + corpus-IDF vote weighting | **8** | **25.0%** | **37.5%** | **53.6%** | **0.3281** |
+
+Ungated (no-gate baseline) true-answer rate: **16.1% → 37.5%**. The negatives'
+closest-shard floor rising 0.2656 → 0.3281 is what makes a zero-false-answer
+threshold exist at all.
+
+### Task 11 — the curve and the pick (full stack, 162 queries)
+
+| Threshold | True Answer | True Silence | False Silence | False Answer |
+|---|---|---|---|---|
+| 0.25 | 1.8% | 100% | 98.2% | 0% |
+| 0.30 | 5.4% | 100% | 92.9% | 0% |
+| **0.325** | **7.1%** | **100%** | **91.1%** | **0%** |
+| 0.35 | 14.3% | 89.6% | 76.8% | 10.4% |
+| 0.375 | 30.4% | 49.1% | 30.4% | 50.9% |
+| 0.40 | 35.7% | 12.3% | 5.4% | 87.7% |
+| 0.45 | 37.5% | 0% | 0% | 100% |
+| naive baseline | 37.5% | 0% | 0% | 100% |
+
+**Picked: `queryThreshold = 0.325`** — the last zero-false-answer point.
+Rationale: the product IS silence-over-fabrication; the headline number is
+hallucination-under-absence, and 0.325 holds it at **0% vs the ungated
+baseline's 100%** while keeping every answer it does give evidence-backed.
+The cost is honest and documented: 91.1% false silence on this deliberately
+hard corpus (short NL questions vs 120-line code chunks). `0.35` is the
+documented recall-leaning alternative (2× true answers for 10.4% FA) — a
+per-deployment call, recorded in the manifest note.
+
+Margin warning: the closest unanswerable query sits at 0.3281 — 0.4 bits above
+the gate. Any corpus or tokenizer change moves that tail: **re-sweep, always.**
+
+### Where the number now lives
+
+- `landmark-orchestrator.ts` default + provenance comment
+- manifest `repo-husk.silence` — **first `calibrated: true` pipeline**, full
+  provenance (corpus, size, date, curve pointer); `pipeline.json` regenerated
+- README threshold table, AGENT.md §4 + known-issue #4 (FIXED, with numbers)
+  + new §5.5 operational note
+- server/api.ts SYSTEM_DIRECTIVE, finalize-mvp.sh vault blurb
+
+### Operational notes
+
+- **IDF weights are part of the index**: buildIndex computes them, saveIndex
+  persists them, loadIndex restores them (and warns on pre-fix indexes).
+  Indexes serialized before this change must be rebuilt.
+- `similarityThreshold: 0.2858` (shard-drift path) predates the tokenizer
+  change — flagged for recalibration, not touched.
+- `broseidon-indexer.ts` / `medical-test.ts` still pin 0.45 explicitly for the
+  MEDICAL corpus, which has never been swept — deliberately left alone; the
+  medical manifest entry now says exactly that. Running the medical sweep on
+  the Pi vault is the natural next calibration (Preston-side corpus).

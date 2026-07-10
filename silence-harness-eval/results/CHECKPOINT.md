@@ -241,3 +241,16 @@ Additionally, a `provenance` field was added to the DomainPipeline schema. The `
   arbitration list.
 - Suggestion (not actioned): add `npm run typecheck && npm run check:refusal`
   in `spectral-config/` to quality.yml so manifest regressions gate PRs.
+
+### Static-dims reconciliation (2026-07-10, decision: Joe via Marsh)
+
+Target-state wins: `dimensionPolicy.maxStaticDims` stays **768**.
+PIPELINE.md Locked Decision #8 (spectral-terrain PR #1) now states both
+numbers explicitly — 1024-D today (mxbai native), 768-D target
+post-`NOMIC_768_PRIMARY` cutover — so the two source-of-truth docs agree.
+Pre-cutover static pipelines flagging HOT under `auditDimensions()` is
+**intended** ("scheduled migration, not yet cut over" — not "broken");
+the intent note now lives in the audit's docstring and the selfcheck HOT
+header. Same PR closed the REFRAG verify item: implemented
+(`refragSelectK`, engine/embed.ts) but zero callers — the live v1.0 path
+upserts the raw 3072-D concat, per Locked Decision #1.

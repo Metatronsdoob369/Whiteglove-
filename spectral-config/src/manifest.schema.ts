@@ -237,6 +237,10 @@ export type DomainManifest = z.infer<typeof DomainManifest>;
  * Enforce the dimension policy: any static (non-temporal) pipeline above
  * maxStaticDims is a violation. Returns the offenders rather than
  * throwing, so an agent can report "running hot" without refusing to load.
+ *
+ * A HOT flag on a pre-cutover static pipeline is INTENDED — it reads as
+ * "scheduled migration (NOMIC_768_PRIMARY), not yet cut over," not as an
+ * error (PIPELINE.md Locked Decision #8; maxStaticDims is the target state).
  */
 export function auditDimensions(m: DomainManifest): Array<{ id: string; dims: number; reason: string }> {
   const out: Array<{ id: string; dims: number; reason: string }> = [];

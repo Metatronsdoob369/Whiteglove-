@@ -30,7 +30,9 @@ _2026-07-10_
 
 - **Faith-Less retrieval engine — operational.** SimHash-128 ranking + Hamming drift guard,
   LFU shard cache + hot ring buffer, ℓ₂-normalization gate (Kahan summation), circadian
-  WAKE/DREAM re-index. Thresholds calibrated: `0.2858` shard-drift, `0.45` query-retrieval.
+  WAKE/DREAM re-index. Query gate calibrated (PR #29): code-aware tokenizer + corpus-IDF,
+  `0.325` = zero-false-answer point on the 162-query corpus (`0.45` remains only as the
+  uncalibrated medical pin; `0.2858` shard-drift flagged for recalibration).
   `retrieve()` prioritized over `query()` until a Q4 model is configured. CI quality gates
   (regression + secret scan + docs hygiene) green.
 - **Spectral-terrain pipeline — built, in final testing.** Compute / artifact / publisher /
@@ -44,4 +46,9 @@ _2026-07-10_
       RAG-style retrieval. _(owner: Preston)_
 - [ ] Resolve v2→v3 fold `[CONFIRM]` disagreements — Pi-side facts, Joe arbitrates.
 - [ ] Configure a Q4 model so `query()` synthesis is first-class.
+- [ ] Medical corpus re-sweep: recalibrate the pinned `0.45` under the code-aware
+      tokenizer + IDF before any medical inference goes live — the old calibration's
+      distance distribution no longer applies. _(owner: Preston-side; created by
+      PR #29's tokenizer change; first step is the liveness check — is Ollama
+      serving a medical index anywhere?)_
 - [x] Backfill Co-Lab standard files — this PR (Bonnie).

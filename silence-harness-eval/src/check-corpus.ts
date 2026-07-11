@@ -69,7 +69,7 @@ for (const f of shardFiles) {
 
 // ── grounded: evidence exists + lexical reachability ─────────────────
 const tokenize = (s: string) =>
-  new Set(s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3));
+  new Set(s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2));
 let weakOverlap = 0;
 for (const q of queries.filter((q) => q.class === "grounded")) {
   for (const ev of q.expectedEvidence ?? []) {

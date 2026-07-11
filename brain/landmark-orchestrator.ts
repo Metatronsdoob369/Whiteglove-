@@ -176,6 +176,11 @@ export class LandmarkOrchestrator {
   /**
    * Build the in-memory SimHash index from all shards on disk.
    * Hardened for memory safety and large-scale datasets.
+   *
+   * @param limit Dev/test only: index just the first N shards (sorted order).
+   *   IDF weights are then computed from that partial corpus — internally
+   *   consistent, but distances are NOT comparable to a full-corpus
+   *   calibration (e.g. the 0.325 gate). Never pass a limit in production.
    */
   async buildIndex(limit?: number): Promise<void> {
     const startMs = Date.now();

@@ -1,0 +1,948 @@
+{
+  "summary": {
+    "grounded": {
+      "n": 56,
+      "evidenceRank": {
+        "median": 30,
+        "top1": "7.1%",
+        "top3": "16.1%",
+        "top10": "33.9%"
+      },
+      "meanEvidenceScore": 0.4355,
+      "meanBestScore": 0.3574
+    },
+    "negatives": {
+      "n": 106,
+      "meanBestScore": 0.3673,
+      "minBestScore": 0.2656
+    },
+    "separation": {
+      "note": "meanEvidenceScore (grounded, want LOW) vs meanBestScore (negatives, want HIGH)",
+      "gap": -0.0682
+    }
+  },
+  "rows": [
+    {
+      "id": "g-agent-cli-role",
+      "class": "grounded",
+      "bestScore": 0.359375,
+      "evidenceRank": 68,
+      "evidenceScore": 0.4921875
+    },
+    {
+      "id": "g-agent-loop-cycle",
+      "class": "grounded",
+      "bestScore": 0.3515625,
+      "evidenceRank": 52,
+      "evidenceScore": 0.4609375
+    },
+    {
+      "id": "g-role-registry",
+      "class": "grounded",
+      "bestScore": 0.3828125,
+      "evidenceRank": 5,
+      "evidenceScore": 0.3984375
+    },
+    {
+      "id": "g-legal-role-silence",
+      "class": "grounded",
+      "bestScore": 0.3515625,
+      "evidenceRank": 2,
+      "evidenceScore": 0.3671875
+    },
+    {
+      "id": "g-medical-role-silence",
+      "class": "grounded",
+      "bestScore": 0.3046875,
+      "evidenceRank": 1,
+      "evidenceScore": 0.3046875
+    },
+    {
+      "id": "g-tool-registration",
+      "class": "grounded",
+      "bestScore": 0.3671875,
+      "evidenceRank": 70,
+      "evidenceScore": 0.5234375
+    },
+    {
+      "id": "g-watchdog-channel-b",
+      "class": "grounded",
+      "bestScore": 0.34375,
+      "evidenceRank": 49,
+      "evidenceScore": 0.46875
+    },
+    {
+      "id": "g-agent-types-agnostic",
+      "class": "grounded",
+      "bestScore": 0.3203125,
+      "evidenceRank": 17,
+      "evidenceScore": 0.40625
+    },
+    {
+      "id": "g-broseidon-pi5",
+      "class": "grounded",
+      "bestScore": 0.390625,
+      "evidenceRank": 4,
+      "evidenceScore": 0.40625
+    },
+    {
+      "id": "g-lfu-evict",
+      "class": "grounded",
+      "bestScore": 0.34375,
+      "evidenceRank": 11,
+      "evidenceScore": 0.453125
+    },
+    {
+      "id": "g-cache-budget",
+      "class": "grounded",
+      "bestScore": 0.3125,
+      "evidenceRank": 5,
+      "evidenceScore": 0.359375
+    },
+    {
+      "id": "g-diagnostic-benchmark",
+      "class": "grounded",
+      "bestScore": 0.390625,
+      "evidenceRank": 31,
+      "evidenceScore": 0.46875
+    },
+    {
+      "id": "g-build-index-vault",
+      "class": "grounded",
+      "bestScore": 0.3984375,
+      "evidenceRank": 9,
+      "evidenceScore": 0.4296875
+    },
+    {
+      "id": "g-calibration-pairwise",
+      "class": "grounded",
+      "bestScore": 0.328125,
+      "evidenceRank": 6,
+      "evidenceScore": 0.3671875
+    },
+    {
+      "id": "g-export-training-jsonl",
+      "class": "grounded",
+      "bestScore": 0.390625,
+      "evidenceRank": 17,
+      "evidenceScore": 0.46875
+    },
+    {
+      "id": "g-export-quality-score",
+      "class": "grounded",
+      "bestScore": 0.375,
+      "evidenceRank": 1,
+      "evidenceScore": 0.375
+    },
+    {
+      "id": "g-rechunk-medical-500",
+      "class": "grounded",
+      "bestScore": 0.4375,
+      "evidenceRank": 97,
+      "evidenceScore": 0.5546875
+    },
+    {
+      "id": "g-refrag-select-k",
+      "class": "grounded",
+      "bestScore": 0.3828125,
+      "evidenceRank": 79,
+      "evidenceScore": 0.4921875
+    },
+    {
+      "id": "g-refrag-sparse-dot",
+      "class": "grounded",
+      "bestScore": 0.3671875,
+      "evidenceRank": 97,
+      "evidenceScore": 0.46875
+    },
+    {
+      "id": "g-simhash-twin",
+      "class": "grounded",
+      "bestScore": 0.359375,
+      "evidenceRank": 84,
+      "evidenceScore": 0.4609375
+    },
+    {
+      "id": "g-hamming-xor-popcount",
+      "class": "grounded",
+      "bestScore": 0.3671875,
+      "evidenceRank": 77,
+      "evidenceScore": 0.4765625
+    },
+    {
+      "id": "g-zim-medlineplus",
+      "class": "grounded",
+      "bestScore": 0.34375,
+      "evidenceRank": 26,
+      "evidenceScore": 0.4375
+    },
+    {
+      "id": "g-orchestrator-brainstem",
+      "class": "grounded",
+      "bestScore": 0.3515625,
+      "evidenceRank": 59,
+      "evidenceScore": 0.4765625
+    },
+    {
+      "id": "g-save-index-persist",
+      "class": "grounded",
+      "bestScore": 0.359375,
+      "evidenceRank": 52,
+      "evidenceScore": 0.4609375
+    },
+    {
+      "id": "g-qubit-poison",
+      "class": "grounded",
+      "bestScore": 0.359375,
+      "evidenceRank": 25,
+      "evidenceScore": 0.4296875
+    },
+    {
+      "id": "g-ranked-sort",
+      "class": "grounded",
+      "bestScore": 0.390625,
+      "evidenceRank": 29,
+      "evidenceScore": 0.4453125
+    },
+    {
+      "id": "g-router-generated",
+      "class": "grounded",
+      "bestScore": 0.2890625,
+      "evidenceRank": 35,
+      "evidenceScore": 0.4453125
+    },
+    {
+      "id": "g-route-null",
+      "class": "grounded",
+      "bestScore": 0.3515625,
+      "evidenceRank": 13,
+      "evidenceScore": 0.4140625
+    },
+    {
+      "id": "g-shatter-source-hash",
+      "class": "grounded",
+      "bestScore": 0.3828125,
+      "evidenceRank": 8,
+      "evidenceScore": 0.421875
+    },
+    {
+      "id": "g-publisher-resume",
+      "class": "grounded",
+      "bestScore": 0.40625,
+      "evidenceRank": 10,
+      "evidenceScore": 0.4453125
+    },
+    {
+      "id": "g-temporal-ranges",
+      "class": "grounded",
+      "bestScore": 0.390625,
+      "evidenceRank": 12,
+      "evidenceScore": 0.4453125
+    },
+    {
+      "id": "g-gutenberg-year",
+      "class": "grounded",
+      "bestScore": 0.3828125,
+      "evidenceRank": 91,
+      "evidenceScore": 0.4921875
+    },
+    {
+      "id": "g-pipeline-modes",
+      "class": "grounded",
+      "bestScore": 0.3671875,
+      "evidenceRank": 9,
+      "evidenceScore": 0.390625
+    },
+    {
+      "id": "g-pipeline-abort-mismatch",
+      "class": "grounded",
+      "bestScore": 0.328125,
+      "evidenceRank": 102,
+      "evidenceScore": 0.46875
+    },
+    {
+      "id": "g-pulse-wake-scan",
+      "class": "grounded",
+      "bestScore": 0.34375,
+      "evidenceRank": 7,
+      "evidenceScore": 0.4140625
+    },
+    {
+      "id": "g-dream-failure-audit",
+      "class": "grounded",
+      "bestScore": 0.359375,
+      "evidenceRank": 89,
+      "evidenceScore": 0.5234375
+    },
+    {
+      "id": "g-embed-contract-reject",
+      "class": "grounded",
+      "bestScore": 0.3828125,
+      "evidenceRank": 33,
+      "evidenceScore": 0.4453125
+    },
+    {
+      "id": "g-kahan-l2",
+      "class": "grounded",
+      "bestScore": 0.328125,
+      "evidenceRank": 2,
+      "evidenceScore": 0.34375
+    },
+    {
+      "id": "g-debug-hamming",
+      "class": "grounded",
+      "bestScore": 0.3828125,
+      "evidenceRank": 61,
+      "evidenceScore": 0.4765625
+    },
+    {
+      "id": "g-finalize-zero-tolerance",
+      "class": "grounded",
+      "bestScore": 0.25,
+      "evidenceRank": 104,
+      "evidenceScore": 0.4140625
+    },
+    {
+      "id": "g-finalize-medical-product",
+      "class": "grounded",
+      "bestScore": 0.3203125,
+      "evidenceRank": 38,
+      "evidenceScore": 0.4609375
+    },
+    {
+      "id": "g-medical-test-core",
+      "class": "grounded",
+      "bestScore": 0.34375,
+      "evidenceRank": 70,
+      "evidenceScore": 0.484375
+    },
+    {
+      "id": "g-cli-faithless-default",
+      "class": "grounded",
+      "bestScore": 0.375,
+      "evidenceRank": 48,
+      "evidenceScore": 0.46875
+    },
+    {
+      "id": "g-docs-check-markers",
+      "class": "grounded",
+      "bestScore": 0.3046875,
+      "evidenceRank": 1,
+      "evidenceScore": 0.3046875
+    },
+    {
+      "id": "g-husk-manifest-diff",
+      "class": "grounded",
+      "bestScore": 0.390625,
+      "evidenceRank": 3,
+      "evidenceScore": 0.40625
+    },
+    {
+      "id": "g-husk-cosine-collection",
+      "class": "grounded",
+      "bestScore": 0.3828125,
+      "evidenceRank": 131,
+      "evidenceScore": 0.53125
+    },
+    {
+      "id": "g-hooks-path",
+      "class": "grounded",
+      "bestScore": 0.2890625,
+      "evidenceRank": 3,
+      "evidenceScore": 0.3515625
+    },
+    {
+      "id": "g-secrets-gitleaks",
+      "class": "grounded",
+      "bestScore": 0.375,
+      "evidenceRank": 112,
+      "evidenceScore": 0.5
+    },
+    {
+      "id": "g-api-wraps-loop",
+      "class": "grounded",
+      "bestScore": 0.2890625,
+      "evidenceRank": 8,
+      "evidenceScore": 0.375
+    },
+    {
+      "id": "g-system-directive",
+      "class": "grounded",
+      "bestScore": 0.3671875,
+      "evidenceRank": 30,
+      "evidenceScore": 0.421875
+    },
+    {
+      "id": "g-legal-fanout",
+      "class": "grounded",
+      "bestScore": 0.375,
+      "evidenceRank": 11,
+      "evidenceScore": 0.3984375
+    },
+    {
+      "id": "g-legal-tile-3072",
+      "class": "grounded",
+      "bestScore": 0.3671875,
+      "evidenceRank": 71,
+      "evidenceScore": 0.453125
+    },
+    {
+      "id": "g-main-pkg-binary",
+      "class": "grounded",
+      "bestScore": 0.3046875,
+      "evidenceRank": 1,
+      "evidenceScore": 0.3046875
+    },
+    {
+      "id": "g-harness-three-classes",
+      "class": "grounded",
+      "bestScore": 0.359375,
+      "evidenceRank": 33,
+      "evidenceScore": 0.46875
+    },
+    {
+      "id": "g-loader-fails-loudly",
+      "class": "grounded",
+      "bestScore": 0.3671875,
+      "evidenceRank": 2,
+      "evidenceScore": 0.3671875
+    },
+    {
+      "id": "g-tui-threshold-cmd",
+      "class": "grounded",
+      "bestScore": 0.4296875,
+      "evidenceRank": 44,
+      "evidenceScore": 0.5
+    },
+    {
+      "id": "u-redis",
+      "class": "ungrounded",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "u-openai",
+      "class": "ungrounded",
+      "bestScore": 0.3125
+    },
+    {
+      "id": "u-postgres",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-docker",
+      "class": "ungrounded",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "u-kubernetes",
+      "class": "ungrounded",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "u-jwt",
+      "class": "ungrounded",
+      "bestScore": 0.375
+    },
+    {
+      "id": "u-oauth",
+      "class": "ungrounded",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "u-websocket",
+      "class": "ungrounded",
+      "bestScore": 0.3515625
+    },
+    {
+      "id": "u-graphql",
+      "class": "ungrounded",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "u-react",
+      "class": "ungrounded",
+      "bestScore": 0.453125
+    },
+    {
+      "id": "u-mongodb",
+      "class": "ungrounded",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "u-sqlite",
+      "class": "ungrounded",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "u-prometheus",
+      "class": "ungrounded",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "u-grafana",
+      "class": "ungrounded",
+      "bestScore": 0.34375
+    },
+    {
+      "id": "u-sentry",
+      "class": "ungrounded",
+      "bestScore": 0.375
+    },
+    {
+      "id": "u-stripe",
+      "class": "ungrounded",
+      "bestScore": 0.40625
+    },
+    {
+      "id": "u-s3",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-terraform",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-kafka",
+      "class": "ungrounded",
+      "bestScore": 0.3984375
+    },
+    {
+      "id": "u-rabbitmq",
+      "class": "ungrounded",
+      "bestScore": 0.3984375
+    },
+    {
+      "id": "u-elasticsearch",
+      "class": "ungrounded",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "u-pinecone",
+      "class": "ungrounded",
+      "bestScore": 0.375
+    },
+    {
+      "id": "u-weaviate",
+      "class": "ungrounded",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "u-langchain",
+      "class": "ungrounded",
+      "bestScore": 0.4296875
+    },
+    {
+      "id": "u-bm25",
+      "class": "ungrounded",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "u-bert",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-gpt4",
+      "class": "ungrounded",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "u-cuda",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-systemd",
+      "class": "ungrounded",
+      "bestScore": 0.34375
+    },
+    {
+      "id": "u-nginx",
+      "class": "ungrounded",
+      "bestScore": 0.40625
+    },
+    {
+      "id": "u-cloudflare",
+      "class": "ungrounded",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "u-vercel",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-supabase",
+      "class": "ungrounded",
+      "bestScore": 0.4296875
+    },
+    {
+      "id": "u-firebase",
+      "class": "ungrounded",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "u-electron",
+      "class": "ungrounded",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "u-webpack",
+      "class": "ungrounded",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "u-jest",
+      "class": "ungrounded",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "u-playwright",
+      "class": "ungrounded",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "u-grpc",
+      "class": "ungrounded",
+      "bestScore": 0.375
+    },
+    {
+      "id": "u-protobuf",
+      "class": "ungrounded",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "u-parquet",
+      "class": "ungrounded",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "u-airflow",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-snowflake",
+      "class": "ungrounded",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "u-duckdb",
+      "class": "ungrounded",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "u-wandb",
+      "class": "ungrounded",
+      "bestScore": 0.3984375
+    },
+    {
+      "id": "u-mlflow",
+      "class": "ungrounded",
+      "bestScore": 0.3515625
+    },
+    {
+      "id": "u-pytorch",
+      "class": "ungrounded",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "u-onnx",
+      "class": "ungrounded",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "u-hashicorp",
+      "class": "ungrounded",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "u-saml",
+      "class": "ungrounded",
+      "bestScore": 0.3515625
+    },
+    {
+      "id": "a-agent-cli-persona",
+      "class": "adversarial",
+      "bestScore": 0.375
+    },
+    {
+      "id": "a-agent-loop-last",
+      "class": "adversarial",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "a-role-in-tool-registry",
+      "class": "adversarial",
+      "bestScore": 0.3984375
+    },
+    {
+      "id": "a-legal-role-permissive",
+      "class": "adversarial",
+      "bestScore": 0.375
+    },
+    {
+      "id": "a-medical-best-guess",
+      "class": "adversarial",
+      "bestScore": 0.3046875
+    },
+    {
+      "id": "a-tools-implicit",
+      "class": "adversarial",
+      "bestScore": 0.4140625
+    },
+    {
+      "id": "a-watchdog-channel-a",
+      "class": "adversarial",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "a-agent-sector-specific",
+      "class": "adversarial",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "a-broseidon-pi4",
+      "class": "adversarial",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "a-mru-evict",
+      "class": "adversarial",
+      "bestScore": 0.328125
+    },
+    {
+      "id": "a-cache-8gb",
+      "class": "adversarial",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "a-diagnostic-forgetting",
+      "class": "adversarial",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "a-index-sqlite",
+      "class": "adversarial",
+      "bestScore": 0.3984375
+    },
+    {
+      "id": "a-calibration-cosine",
+      "class": "adversarial",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "a-export-parquet",
+      "class": "adversarial",
+      "bestScore": 0.375
+    },
+    {
+      "id": "a-quality-08",
+      "class": "adversarial",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "a-rechunk-2000",
+      "class": "adversarial",
+      "bestScore": 0.40625
+    },
+    {
+      "id": "a-refrag-bottom-k",
+      "class": "adversarial",
+      "bestScore": 0.265625
+    },
+    {
+      "id": "a-refrag-dense",
+      "class": "adversarial",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "a-simhash-256",
+      "class": "adversarial",
+      "bestScore": 0.3203125
+    },
+    {
+      "id": "a-hamming-and",
+      "class": "adversarial",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "a-zim-wikipedia",
+      "class": "adversarial",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "a-orchestrator-cloud",
+      "class": "adversarial",
+      "bestScore": 0.3515625
+    },
+    {
+      "id": "a-save-index-qdrant",
+      "class": "adversarial",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "a-qubit-l1",
+      "class": "adversarial",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "a-ranked-descending",
+      "class": "adversarial",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "a-router-reverse",
+      "class": "adversarial",
+      "bestScore": 0.390625
+    },
+    {
+      "id": "a-route-throws",
+      "class": "adversarial",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "a-shatter-768",
+      "class": "adversarial",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "a-publisher-restart",
+      "class": "adversarial",
+      "bestScore": 0.3203125
+    },
+    {
+      "id": "a-tstart-first",
+      "class": "adversarial",
+      "bestScore": 0.3359375
+    },
+    {
+      "id": "a-gutenberg-metadata",
+      "class": "adversarial",
+      "bestScore": 0.328125
+    },
+    {
+      "id": "a-compute-writes",
+      "class": "adversarial",
+      "bestScore": 0.421875
+    },
+    {
+      "id": "a-mismatch-continue",
+      "class": "adversarial",
+      "bestScore": 0.421875
+    },
+    {
+      "id": "a-wake-full-reindex",
+      "class": "adversarial",
+      "bestScore": 0.3203125
+    },
+    {
+      "id": "a-dream-retry",
+      "class": "adversarial",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "a-contract-accepts-zero",
+      "class": "adversarial",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "a-kahan-l1",
+      "class": "adversarial",
+      "bestScore": 0.34375
+    },
+    {
+      "id": "a-debug-cosine",
+      "class": "adversarial",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "a-finalize-warnings",
+      "class": "adversarial",
+      "bestScore": 0.359375
+    },
+    {
+      "id": "a-finalize-keeps",
+      "class": "adversarial",
+      "bestScore": 0.34375
+    },
+    {
+      "id": "a-legal-test-core",
+      "class": "adversarial",
+      "bestScore": 0.375
+    },
+    {
+      "id": "a-rag-default",
+      "class": "adversarial",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "a-docs-check-passes",
+      "class": "adversarial",
+      "bestScore": 0.3984375
+    },
+    {
+      "id": "a-husk-reembed",
+      "class": "adversarial",
+      "bestScore": 0.296875
+    },
+    {
+      "id": "a-husk-euclid",
+      "class": "adversarial",
+      "bestScore": 0.3828125
+    },
+    {
+      "id": "a-hooks-copy",
+      "class": "adversarial",
+      "bestScore": 0.328125
+    },
+    {
+      "id": "a-secrets-trufflehog",
+      "class": "adversarial",
+      "bestScore": 0.3515625
+    },
+    {
+      "id": "a-api-hardcoded-role",
+      "class": "adversarial",
+      "bestScore": 0.328125
+    },
+    {
+      "id": "a-directive-cloud",
+      "class": "adversarial",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "a-legal-primary-only",
+      "class": "adversarial",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "a-legal-tile-2048",
+      "class": "adversarial",
+      "bestScore": 0.3203125
+    },
+    {
+      "id": "a-main-boots-tui",
+      "class": "adversarial",
+      "bestScore": 0.296875
+    },
+    {
+      "id": "a-fourth-class",
+      "class": "adversarial",
+      "bestScore": 0.3515625
+    },
+    {
+      "id": "a-loader-skips",
+      "class": "adversarial",
+      "bestScore": 0.3671875
+    },
+    {
+      "id": "a-tui-react",
+      "class": "adversarial",
+      "bestScore": 0.375
+    }
+  ]
+}

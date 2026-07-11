@@ -186,7 +186,7 @@ cat > "$ROOT/dist/manifest.json" <<EOF
     "shards": $SHARD_COUNT,
     "algorithm": "SimHash-128",
     "dimensions": "3072-D Spectral Landmark Projection",
-    "threshold": 0.45
+    "threshold": 0.325
   },
   "built": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }

@@ -40,6 +40,18 @@ const TOTAL_BITS = 128;
 
 export class SimHashDriftGuard {
   private readonly threshold: number;
+  /**
+   * Optional IDF token weights (known-issue #4, "token weighting").
+   * Without weights, generic tokens ("how", "the", "const", "return")
+   * vote as loudly as rare distinctive ones, so every query drifts
+   * toward the corpus-average signature and answerable/unanswerable
+   * queries land in the same band. With IDF weights, rare tokens
+   * dominate the accumulator. Weights are corpus statistics: compute
+   * them at index build (computeIdfWeights), persist them with the
+   * index, and sign shards AND queries with the same weights.
+   */
+  private tokenWeights: Map<string, number> | null = null;
+  private unseenTokenWeight: number = 1.0;
 
   /**
    * @param threshold - Hamming ratio threshold for stability (0.0 - 1.0).
@@ -119,26 +131,86 @@ export class SimHashDriftGuard {
     const saltA = Buffer.from(`RFG:shA:${schemaSlice}`);
     const saltB = Buffer.from(`RFG:shB:${schemaSlice}`);
 
-    // Simple word-level tokenization: lowercase, split on whitespace
-    const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const words = this.tokenizeText(text);
     const tokens = new Uint32Array(words.length);
+    const weights = new Float64Array(words.length);
     for (let i = 0; i < words.length; i++) {
       tokens[i] = this.fnv1a32(words[i]);
+      weights[i] = this.tokenWeights
+        ? this.tokenWeights.get(words[i]) ?? this.unseenTokenWeight
+        : 1.0;
     }
 
-    const sigA = this.simHash64(tokens, saltA);
-    const sigB = this.simHash64(tokens, saltB);
+    const sigA = this.simHash64(tokens, saltA, weights);
+    const sigB = this.simHash64(tokens, saltB, weights);
 
     return (sigA << DIMENSIONS_64) | sigB;
   }
 
   /**
-   * Internal 64-bit accumulator.
-   * Processes token IDs through BLAKE2b, applies bit-weights
-   * to isolate systemic token dominance.
+   * Compute IDF weights over a corpus: idf(t) = ln(1 + N/df(t)), with the
+   * unseen-token weight pinned to the rarest class (df = 1). Deterministic,
+   * offline, dependency-free.
    */
-  private simHash64(tokens: Uint32Array, personSalt: Buffer): bigint {
-    const acc = new Int32Array(64);
+  computeIdfWeights(texts: string[]): { weights: Map<string, number>; unseenWeight: number } {
+    const df = new Map<string, number>();
+    for (const text of texts) {
+      for (const token of this.tokenizeText(text)) {
+        df.set(token, (df.get(token) ?? 0) + 1);
+      }
+    }
+    const n = texts.length;
+    const weights = new Map<string, number>();
+    for (const [token, count] of df) {
+      weights.set(token, Math.log(1 + n / count));
+    }
+    return { weights, unseenWeight: Math.log(1 + n) };
+  }
+
+  /** Install (or clear) the IDF weights used by simHash128FromText. */
+  setTokenWeights(weights: Map<string, number> | null, unseenWeight: number = 1.0): void {
+    this.tokenWeights = weights;
+    this.unseenTokenWeight = unseenWeight;
+  }
+
+  /** Expose weights for index persistence. */
+  getTokenWeights(): { weights: Map<string, number> | null; unseenWeight: number } {
+    return { weights: this.tokenWeights, unseenWeight: this.unseenTokenWeight };
+  }
+
+  /**
+   * Code-aware tokenization. Plain whitespace splitting left punctuation
+   * glued to code tokens (`entry.frequency` never matched "frequency"), so
+   * short natural-language queries shared almost no token mass with 120-line
+   * code chunks — measured on the calibration corpus as median evidence rank
+   * 30/131 and NEGATIVE grounded-vs-negative separation. This splits
+   * camelCase identifiers, breaks on any non-letter/non-digit rune
+   * (unicode-aware, so ℓ₂ survives), and drops 1-char noise.
+   *
+   * Changing tokenization changes every text signature: serialized indexes
+   * must be rebuilt, and thresholds calibrated on the old tokenizer
+   * (including the 0.2858 shard-drift value) need recalibration.
+   */
+  private tokenizeText(text: string): string[] {
+    const words = text
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length >= 2);
+    // Set semantics: each unique token votes once. With raw frequency, a
+    // token repeated 20× in a 120-line chunk casts 20 votes and the chunk's
+    // bulk vocabulary drowns the few distinctive tokens a short query can
+    // share — presence, not repetition, is the similarity signal here.
+    return [...new Set(words)];
+  }
+
+  /**
+   * Internal 64-bit accumulator.
+   * Processes token IDs through the salted hash and accumulates
+   * weighted votes per bit (weight 1.0 without IDF weights).
+   */
+  private simHash64(tokens: Uint32Array, personSalt: Buffer, tokenVoteWeights?: Float64Array): bigint {
+    const acc = new Float64Array(64);
     // Pre-calculate salt hash part
     let saltHash = 0xcbf29ce484222325n;
     for (let i = 0; i < personSalt.length; i++) {
@@ -149,14 +221,15 @@ export class SimHashDriftGuard {
     for (let i = 0; i < tokens.length; i++) {
       let tokenHash = saltHash ^ BigInt(tokens[i]);
       tokenHash = (tokenHash * 0x100000001b3n) & 0xffffffffffffffffn;
-      
+
       // Split 64-bit BigInt into two 32-bit integers for faster bitwise ops
       let low = Number(tokenHash & 0xffffffffn) | 0;
       let high = Number((tokenHash >> 32n) & 0xffffffffn) | 0;
 
+      const w = tokenVoteWeights ? tokenVoteWeights[i] : 1.0;
       for (let bit = 0; bit < 32; bit++) {
-        acc[bit] += (low & (1 << bit)) ? 1 : -1;
-        acc[bit + 32] += (high & (1 << bit)) ? 1 : -1;
+        acc[bit] += (low & (1 << bit)) ? w : -w;
+        acc[bit + 32] += (high & (1 << bit)) ? w : -w;
       }
     }
 

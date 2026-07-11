@@ -99,14 +99,14 @@ should not be used for similarity gating without rework.
 | Option | Default | Meaning |
 |---|---|---|
 | `shardDir` | machine-specific | shattered shard JSON directory |
-| `queryThreshold` | 0.45 | query→shard gate, Hamming ratio of 128 bits. **Lower = stricter = more silence.** |
-| `similarityThreshold` | 0.2858 | shard→shard drift detection (integrity, not retrieval) |
+| `queryThreshold` | 0.325 | query→shard gate, Hamming ratio of 128 bits. **Lower = stricter = more silence.** Calibrated 2026-07-10 (see §5 issue 4) — per-deployment, re-sweep on your corpus. |
+| `similarityThreshold` | 0.2858 | shard→shard drift detection (integrity, not retrieval). Predates the 2026-07-10 tokenizer/IDF change — recalibrate before trusting. |
 | `maxContextShards` | 3 | max shards fed as context / returned |
 | `ollamaModel` | qwen2.5-coder:7b | local model for RAG mode |
 | `cacheCapacity` | 500 | LFU cache entries |
 | `maxResponseTokens` | 200 | RAG response cap |
 
-Threshold intuition: 0.45 ≈ 57 of 128 bits differing; 0.15 ≈ 19 bits;
+Threshold intuition: 0.325 ≈ 42 of 128 bits differing; 0.15 ≈ 19 bits;
 0.03 ≈ 4 bits (near-duplicate territory). Random unrelated signatures
 sit near 0.50. Calibrate against your corpus with the harness sweep —
 do not trust defaults.
@@ -131,15 +131,29 @@ do not trust defaults.
    surfaces it as `bestScore` for sweep plots.
 3. **Vector SimHash path not locality-sensitive** — see §3. Parked
    unless/until vector gating is needed.
-4. **Weak short-query separation on code shards (open).** Word-level
-   whitespace tokenization keeps punctuation glued to code tokens
-   (`entry.frequency` ≠ `frequency`), so a short natural-language query
-   shares little token mass with a 120-line code chunk. Smoke run: one
-   grounded query ranked its evidence #2 @ 0.3438; the other's evidence
-   sat #5 @ 0.4531 behind unrelated chunks at 0.4141. Candidate fixes:
-   code-aware tokenization (strip punctuation, split identifiers),
-   token weighting, smaller chunks. Decide after the real-corpus
-   calibration set exists.
+4. **Weak short-query separation on code shards (FIXED 2026-07-10).**
+   Word-level whitespace tokenization kept punctuation glued to code
+   tokens (`entry.frequency` ≠ `frequency`) and let bulk/common tokens
+   out-vote distinctive ones. Fixed in three measured steps on the
+   162-query / 131-shard calibration corpus (results/RANKS-*.json):
+   code-aware tokenization (camelCase split, unicode non-alnum split,
+   1-char filter), set semantics (each unique token votes once), and
+   corpus-IDF vote weighting (rare tokens dominate the accumulator).
+   Median grounded evidence rank **30 → 8**; top-1 7.1% → 25.0%;
+   ungated true-answer rate 16.1% → 37.5%; the closest unanswerable
+   query moved from 0.2656 to 0.3281, which is what makes a
+   zero-false-answer threshold exist at all (0.325). Residual limit:
+   grounded/unanswerable score distributions still overlap — that is
+   the 128-bit LSH ceiling on this corpus, and larger signatures or
+   smaller chunks are the next lever if a deployment needs more recall
+   at zero false answers.
+5. **IDF weights are part of the index (operational note).** buildIndex
+   computes corpus IDF weights and signs shards AND queries with them;
+   saveIndex persists the weights and loadIndex restores them. Indexes
+   serialized before 2026-07-10 lack weights and use the old tokenizer —
+   **rebuild after upgrading.** Callers that pin explicit thresholds
+   (broseidon-indexer.ts, medical-test.ts at 0.45) predate this change
+   and need their own corpus sweep before those numbers mean anything.
 
 These are listed deliberately: the product's credibility rests on
 measuring its own failure surface honestly.

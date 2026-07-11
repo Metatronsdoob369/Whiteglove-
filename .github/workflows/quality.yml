@@ -23,6 +23,9 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Typecheck (finalize-mvp Phase 1 gate)
+        run: npx tsc --noEmit
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:

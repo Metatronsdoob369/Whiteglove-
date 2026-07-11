@@ -39,6 +39,11 @@ _2026-07-10_
   serving planes per `CLEAN_PIPELINE_ARCHITECTURE.md`; baseline runs under
   `brain/spectral/baseline_runs/`. v2→v3 manifest fold underway (`spectral-config/FOLD_SPEC.md`).
 - **Uncommitted WIP on disk** (not in this PR): `husk-production-scaffold/`, `packages/`.
+- **Typecheck restored + CI-gated (2026-07-11, Clyde):** repo compiles clean; `tsc --noEmit`
+  now runs in the Quality Gates job (finalize-mvp Phase 1 can't silently rot again).
+  `agent/tools/terrain-query.ts` + `pattern-scan.ts` are fail-closed stubs pending the
+  husk-production-scaffold WIP landing; self-contained sub-projects (`spectral-config/`,
+  `silence-harness-eval/`) excluded from the root compile (they own their tsconfigs).
 
 ## Next work
 
@@ -51,4 +56,8 @@ _2026-07-10_
       distance distribution no longer applies. _(owner: Preston-side; created by
       PR #29's tokenizer change; first step is the liveness check — is Ollama
       serving a medical index anywhere?)_
-- [x] Backfill Co-Lab standard files — this PR (Bonnie).
+- [x] Backfill Co-Lab standard files — 2026-07-10 (Bonnie).
+- [ ] Productization → v1.0 finish line (co-lab issue #7; Clyde driving under the
+      completion mandate, Marsh + Preston agreed 2026-07-11): package boundary →
+      one-command spine → TUI → agent-in-the-loop testing. Plan proposed on the
+      board; Preston shapes/redirects there.

@@ -27,6 +27,21 @@ Newest on top. History lives here; current state lives in `PLAN.md`.
   shortening); ungrounded medical control 0.4063 (silenced). Clean discrimination.
 - Root tsc clean; both sub-project typechecks clean.
 
+**Review round (Bonnie cold review, 2 real findings — both addressed)**
+- Finding 1 (cross-contamination, fixed): both corpus modes share `shattered/` and the
+  orchestrator indexes every `.json` — a fixture run on a machine with medical shards
+  could serve/package real medical content under the fixture label; worse, the
+  persisted `index.json` survives mode switches and Phase 2b skips rebuild when it
+  exists, so a medical run after a fixture run would serve the fixture index. Fix:
+  corpus-isolation block purges the other corpus's shards AND invalidates the index on
+  any cross-mode residue (costs a rebuild/rechunk on the next switch — that's the
+  price of the isolation guarantee). Verified with a planted fake `med_chunk` shard.
+- Finding 2 (ship-guard, conservative default applied — Preston may redirect): `auto`
+  resolving to fixture used to be the old hard-stop condition (no medical vault); a
+  real ship run would now have continued and tagged v1.0.0-mvp from the fixture. Phase
+  6 now refuses to ship an AUTO-resolved fixture corpus; explicit `WG_CORPUS=fixture`
+  ships remain possible.
+
 **Notes/gotchas**
 - Windows: killing the npx shim leaves the ts-node server process alive — it holds
   port 4880 and any inherited pipe (a piped verify run hung on exactly this). CI

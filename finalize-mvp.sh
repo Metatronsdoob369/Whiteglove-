@@ -75,6 +75,27 @@ if [ "$CORPUS" = "auto" ]; then
   if [ "$MED_COUNT" -gt 0 ]; then CORPUS="medical"; else CORPUS="fixture"; fi
 fi
 
+# Corpus isolation (review finding, PR #32): both modes share $SHARD_DIR and the
+# orchestrator indexes EVERY .json there — purge the other corpus's shards and
+# invalidate the persisted index on any cross-mode residue, or a fixture payload
+# could carry real medical shards (and a medical run could serve a fixture index,
+# since Phase 2b skips rebuild when index.json exists).
+INDEX_FILE_EARLY="$ROOT/brain/shards/vault/index.json"
+if [ "$CORPUS" = "medical" ]; then
+  STALE_COUNT=$(find "$SHARD_DIR" -name "fix_chunk_*.json" | wc -l | tr -d ' ')
+else
+  STALE_COUNT=$MED_COUNT
+fi
+if [ "$STALE_COUNT" -gt 0 ]; then
+  if [ "$CORPUS" = "medical" ]; then
+    find "$SHARD_DIR" -name "fix_chunk_*.json" -delete
+  else
+    find "$SHARD_DIR" -name "med_chunk_*.json" -delete
+  fi
+  rm -f "$INDEX_FILE_EARLY"
+  ok "Corpus isolation: removed $STALE_COUNT cross-corpus shards + invalidated index"
+fi
+
 if [ "$CORPUS" = "medical" ]; then
   # Ensure medical shards exist — run rechunker if not
   if [ "$MED_COUNT" -eq 0 ]; then
@@ -235,6 +256,13 @@ if [ "${WG_VERIFY:-0}" = "1" ]; then
 elif [ ! -d "$ROOT/.git" ]; then
   warn "No git repo found — skipping commit. Run: git init"
 else
+  # Ship guard (review finding, PR #32): a real ship run whose corpus AUTO-resolved
+  # to fixture means the medical vault was absent — the pre-PR behavior was a hard
+  # stop, and shipping a fixture-built tag by accident must stay impossible.
+  # Shipping a fixture build remains possible, but only by explicit request.
+  if [ "$CORPUS" = "fixture" ] && [ "${WG_CORPUS:-auto}" != "fixture" ]; then
+    fail "Refusing to ship: corpus auto-resolved to fixture (medical vault absent). Mount the vault, or pass WG_CORPUS=fixture explicitly to ship a fixture build."
+  fi
   git -C "$ROOT" add \
     server/api.ts \
     finalize-mvp.sh \

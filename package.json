@@ -18,6 +18,8 @@
     "calibrate": "ts-node brain/indexer/calibration.ts",
     "shatter": "ts-node brain/shatter.ts",
     "build-index": "ts-node brain/indexer/build-index.ts",
+    "fixture:vault": "ts-node brain/indexer/build-fixture-vault.ts",
+    "finishline:verify": "bash -c \"WG_CORPUS=fixture WG_VERIFY=1 bash finalize-mvp.sh\"",
     "pkg:mac": "pkg dist/server/main.js --targets node18-macos-x64 --output release/spectral-agent-macos --compress GZip",
     "pkg:win": "pkg dist/server/main.js --targets node18-win-x64 --output release/spectral-agent-win.exe --compress GZip",
     "pkg:linux": "pkg dist/server/main.js --targets node18-linux-x64 --output release/spectral-agent-linux --compress GZip",

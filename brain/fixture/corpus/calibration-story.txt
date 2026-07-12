@@ -1,0 +1,19 @@
+WhiteGlove gate calibration — how the threshold was chosen.
+
+A threshold is not a constant; it is a measurement with provenance. The
+operating gate of 0.325 was chosen as the last zero-false-answer point on a
+sweep over a 162-query corpus: grounded queries that must answer with the
+expected evidence, ungrounded queries that must stay silent, and adversarial
+near-misses that swap one entity or version number to tempt a false answer.
+
+The eval harness scores five outcomes: true_answer, wrong_evidence,
+false_silence, true_silence, and false_answer. The headline number is the
+false_answer rate — hallucination under absence — measured against a naive
+baseline with the gate disabled. Calibration only counts when the tokenizer,
+the IDF weighting, and the corpus are named alongside the number, because a
+threshold measured under one distance distribution does not transfer to
+another.
+
+Two flagged values remain deliberately uncalibrated: the 0.45 medical pin
+predates the code-aware tokenizer, and the 0.2858 shard-drift threshold is
+scheduled for recalibration. Neither may gate live inference until re-swept.

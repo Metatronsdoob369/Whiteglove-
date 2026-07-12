@@ -1,0 +1,17 @@
+WhiteGlove Agent Husk — the sector-agnostic agent shell.
+
+The husk is an agent loop that knows nothing about any domain. A role
+contract tells it what it is: the contract carries the sector name, the
+system prompt, the list of allowed tools, the silence policy, and the token
+budget for responses. Swap the role contract and the same engine becomes a
+medical assistant, a legal assistant, or anything else with a vault.
+
+Tools are registered explicitly in a tool registry. Nothing runs unless it
+is both registered and named in the active role's allowed tools list. The
+built-in vault_retrieve tool queries the Faith-Less shard vault; memory_set
+and memory_get hold ephemeral session state that dies with the session.
+
+A strict silence policy means the agent says nothing when the vault has
+nothing. A permissive policy allows a local model fallback, clearly marked.
+The husk defaults to strict, because the product promise is silence over
+fabrication.

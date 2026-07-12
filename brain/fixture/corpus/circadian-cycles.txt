@@ -1,0 +1,17 @@
+WhiteGlove circadian maintenance — WAKE and DREAM cycles.
+
+The vault maintains itself on a heartbeat. The WAKE cycle scans the intake
+paths for new knowledge and shatters fresh documents into shards. The DREAM
+cycle re-indexes the vault and verifies integrity: every stored fingerprint
+is recomputed and compared, and drift beyond the shard-drift threshold is
+flagged rather than silently accepted.
+
+All vectors pass an L2 normalization gate at ingestion, enforced by the
+embedding contract, so every shard lives on the unit sphere and distance
+comparisons stay honest. A least-frequently-used cache keeps hot shards in
+memory, and a hot ring buffer pins the most critical landmarks for
+constant-time access.
+
+The design goal is a portable archive drive that stays trustworthy offline:
+no network dependency, no cloud calls, and a re-index that can prove to
+itself that nothing rotted while the machine slept.

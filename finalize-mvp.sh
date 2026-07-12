@@ -266,9 +266,9 @@ else
   git -C "$ROOT" add \
     server/api.ts \
     finalize-mvp.sh \
-    dist/manifest.json \
-    "dist/WHITEGLOVE_SYSTEM_DIRECTIVE_${SECTOR}.json" \
-    dist/WHITEGLOVE_SYSTEM_DIRECTIVE_general.json
+    -f dist/manifest.json \
+    -f "dist/WHITEGLOVE_SYSTEM_DIRECTIVE_${SECTOR}.json" \
+    -f dist/WHITEGLOVE_SYSTEM_DIRECTIVE_general.json
 
   git -C "$ROOT" commit -m "$(cat <<'EOF'
 feat(whiteglove): v1.0.0-mvp — Sovereign API + Faith-Less retrieval

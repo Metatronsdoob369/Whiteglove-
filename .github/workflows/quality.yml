@@ -26,6 +26,12 @@ jobs:
       - name: Typecheck (finalize-mvp Phase 1 gate)
         run: npx tsc --noEmit
 
+      - name: Typecheck sub-projects (own tsconfigs)
+        run: |
+          set -euo pipefail
+          (cd spectral-config && npm ci && npx tsc)
+          (cd silence-harness-eval && npm ci && npx tsc)
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -33,6 +39,25 @@ jobs:
 
       - name: Run regression suites
         run: npm test
+
+  finish-line:
+    name: Finish Line (fixture corpus)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run finalize-mvp end-to-end on the committed fixture corpus
+        run: WG_CORPUS=fixture WG_VERIFY=1 bash finalize-mvp.sh
 
   docs-release-hygiene:
     name: Docs Release Hygiene

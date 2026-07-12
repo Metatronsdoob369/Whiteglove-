@@ -44,6 +44,13 @@ _2026-07-10_
   `agent/tools/terrain-query.ts` + `pattern-scan.ts` are fail-closed stubs pending the
   husk-production-scaffold WIP landing; self-contained sub-projects (`spectral-config/`,
   `silence-harness-eval/`) excluded from the root compile (they own their tsconfigs).
+- **Finish line reproducible (2026-07-11, Clyde):** `finalize-mvp.sh` now runs end-to-end
+  on a fresh clone via the committed fixture corpus (`brain/fixture/corpus/`, shattered
+  paragraph-per-shard by `build-fixture-vault.ts`). `WG_CORPUS=medical|fixture|auto`
+  (auto prefers medical when its vault is present — medical stays the product);
+  `WG_VERIFY=1` skips commit+tag. CI runs the whole finish line on every PR
+  (`finish-line` job) plus the sub-projects' own typechecks. Fixture smoke asserts a
+  grounded answer: measured 0.2578 vs the 0.325 gate; ungrounded control 0.4063.
 
 ## Next work
 

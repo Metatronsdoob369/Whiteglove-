@@ -1,0 +1,19 @@
+WhiteGlove Faith-Less Retrieval — how the silence gate works.
+
+The engine inverts standard RAG. A query is fingerprinted with SimHash-128,
+and Hamming distance ranking finds the closest knowledge shards in the vault.
+When no shard clears the calibrated Hamming distance threshold, the gate
+returns silence instead of fabricating an answer. The silence is the feature:
+in high-stakes work, an agent that fabricates nothing beats one that sounds
+confident.
+
+Retrieve mode returns verified source text as-is, with citations naming the
+shard, the source document, and the measured Hamming ratio. No language model
+sits on the retrieve path, which is why a vault lookup completes in
+milliseconds. Query mode may optionally synthesize an answer through a local
+model, but only from retrieved source text, never from model memory.
+
+A silence response is not empty. It carries exactly one closest-miss citation
+so the caller can see how far the best candidate landed from the gate. That
+distance is evidence: it distinguishes "the vault has nothing near this" from
+"the vault almost answered."

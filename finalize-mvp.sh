@@ -56,30 +56,53 @@ banner "Phase 2 — Shard Vault"
 SHARD_DIR="$ROOT/brain/shards/shattered"
 STAGING_DIR="$ROOT/brain/shards/staging"
 
-if [ ! -d "$SHARD_DIR" ]; then
-  fail "Shard directory missing: $SHARD_DIR"
-fi
+mkdir -p "$SHARD_DIR"
 
-# Remove old contracting shards — medical is the product
+# Remove old contracting shards — superseded corpus
 CONTRACTING_COUNT=$(find "$SHARD_DIR" -name "shard_*.json" | wc -l | tr -d ' ')
 if [ "$CONTRACTING_COUNT" -gt 0 ]; then
   find "$SHARD_DIR" -name "shard_*.json" -delete
   ok "Removed $CONTRACTING_COUNT legacy contracting shards"
 fi
 
-# Ensure medical shards exist — run rechunker if not
+# Corpus selection: WG_CORPUS=medical|fixture|auto (default auto).
+# medical is the product when its vault is present; the committed fixture
+# corpus (brain/fixture/corpus/) keeps the finish line runnable on a fresh
+# clone and in CI, where the ARCHIVE drive does not exist.
+CORPUS="${WG_CORPUS:-auto}"
 MED_COUNT=$(find "$SHARD_DIR" -name "med_chunk_*.json" | wc -l | tr -d ' ')
-if [ "$MED_COUNT" -eq 0 ]; then
-  echo "  No medical shards found. Running rechunk pipeline..."
-  python3 "$ROOT/brain/indexer/rechunk_medical.py" || fail "Rechunk pipeline failed"
-  MED_COUNT=$(find "$SHARD_DIR" -name "med_chunk_*.json" | wc -l | tr -d ' ')
+if [ "$CORPUS" = "auto" ]; then
+  if [ "$MED_COUNT" -gt 0 ]; then CORPUS="medical"; else CORPUS="fixture"; fi
 fi
 
-SHARD_COUNT=$MED_COUNT
-if [ "$SHARD_COUNT" -eq 0 ]; then
-  fail "No medical shards in vault — check rechunk_medical.py"
+if [ "$CORPUS" = "medical" ]; then
+  # Ensure medical shards exist — run rechunker if not
+  if [ "$MED_COUNT" -eq 0 ]; then
+    echo "  No medical shards found. Running rechunk pipeline..."
+    python3 "$ROOT/brain/indexer/rechunk_medical.py" || fail "Rechunk pipeline failed"
+    MED_COUNT=$(find "$SHARD_DIR" -name "med_chunk_*.json" | wc -l | tr -d ' ')
+  fi
+  SHARD_COUNT=$MED_COUNT
+  [ "$SHARD_COUNT" -gt 0 ] || fail "No medical shards in vault — check rechunk_medical.py"
+  SECTOR="medical"
+  SMOKE_QUERY="what+is+A1C"
+  ok "$SHARD_COUNT medical shards in vault"
+else
+  warn "Running against the committed FIXTURE corpus (no medical vault on this machine)"
+  # Fixture vault is a derived artifact — always regenerate (idempotent, ~2s),
+  # so corpus edits and shard-format changes can never leave a stale vault.
+  echo "  Building fixture vault from brain/fixture/corpus/..."
+  npx ts-node --project tsconfig.json brain/indexer/build-fixture-vault.ts || fail "Fixture vault build failed"
+  FIX_COUNT=$(find "$SHARD_DIR" -name "fix_chunk_*.json" | wc -l | tr -d ' ')
+  SHARD_COUNT=$FIX_COUNT
+  [ "$SHARD_COUNT" -gt 0 ] || fail "No fixture shards — check brain/indexer/build-fixture-vault.ts"
+  SECTOR="fixture"
+  # Near-verbatim of two sentences from brain/fixture/corpus/faithless-retrieval.txt ¶2.
+  # Measured against the paragraph shards: hammingRatio 0.2578 (gate 0.325) — answers.
+  # One sentence alone measured 0.3281 — silenced. Don't shorten this query.
+  SMOKE_QUERY="the+engine+inverts+standard+rag+a+query+is+fingerprinted+with+simhash-128+and+hamming+distance+ranking+finds+the+closest+knowledge+shards+in+the+vault+when+no+shard+clears+the+calibrated+hamming+distance+threshold+the+gate+returns+silence+instead+of+fabricating+an+answer"
+  ok "$SHARD_COUNT fixture shards in vault"
 fi
-ok "$SHARD_COUNT medical shards in vault"
 
 # ─── Phase 2b: Pre-build index ───────────────────────────────────────────────
 banner "Phase 2b — Pre-build Vault Index"
@@ -133,21 +156,27 @@ else
   fail "/health returned unexpected response: $HEALTH"
 fi
 
-# /payload/medical
-PAYLOAD=$(curl -sf "http://localhost:$API_PORT/payload/medical")
+# /payload/:sector
+PAYLOAD=$(curl -sf "http://localhost:$API_PORT/payload/$SECTOR")
 if echo "$PAYLOAD" | grep -q "SYSTEM_DIRECTIVE"; then
-  ok "/payload/medical → SYSTEM_DIRECTIVE generated"
+  ok "/payload/$SECTOR → SYSTEM_DIRECTIVE generated"
 else
-  fail "/payload/medical did not return expected payload"
+  fail "/payload/$SECTOR did not return expected payload"
 fi
 
 # /retrieve — Faith-Less retrieve only (no LLM, no timeout risk)
-RETRIEVE_RESULT=$(curl -sf "http://localhost:$API_PORT/retrieve?q=what+is+A1C" 2>&1 || echo "ERROR")
+RETRIEVE_RESULT=$(curl -sf "http://localhost:$API_PORT/retrieve?q=$SMOKE_QUERY" 2>&1 || echo "ERROR")
 
 if echo "$RETRIEVE_RESULT" | grep -q "silenced"; then
   SILENCED=$(echo "$RETRIEVE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['silenced'])" 2>/dev/null || echo "unknown")
   TOTAL_MS=$(echo "$RETRIEVE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('metrics',{}).get('totalMs','?'))" 2>/dev/null || echo "?")
   ok "/retrieve → silenced=$SILENCED | ${TOTAL_MS}ms"
+  # Fixture mode is a hard assertion: the smoke query is near-verbatim from a
+  # committed paragraph shard, so it MUST retrieve. Silence here means the
+  # retrieval path (shatter → index → gate) is broken, not strict.
+  if [ "$CORPUS" = "fixture" ] && [ "$SILENCED" != "False" ]; then
+    fail "fixture smoke query must retrieve (grounded, near-verbatim) — got silenced=$SILENCED"
+  fi
 else
   warn "/retrieve returned unexpected response"
   echo "  $RETRIEVE_RESULT" | head -3
@@ -158,10 +187,10 @@ banner "Phase 5 — Package"
 
 mkdir -p "$ROOT/dist"
 
-# Write the canonical SYSTEM_DIRECTIVE payload
-curl -sf "http://localhost:$API_PORT/payload/medical" \
-  > "$ROOT/dist/WHITEGLOVE_SYSTEM_DIRECTIVE_medical.json"
-ok "dist/WHITEGLOVE_SYSTEM_DIRECTIVE_medical.json written"
+# Write the canonical SYSTEM_DIRECTIVE payload for the active corpus
+curl -sf "http://localhost:$API_PORT/payload/$SECTOR" \
+  > "$ROOT/dist/WHITEGLOVE_SYSTEM_DIRECTIVE_${SECTOR}.json"
+ok "dist/WHITEGLOVE_SYSTEM_DIRECTIVE_${SECTOR}.json written"
 
 # Write a generic/general payload
 curl -sf "http://localhost:$API_PORT/payload/general" \
@@ -201,14 +230,16 @@ ok "Server stopped"
 # ─── Phase 6: Commit + tag ───────────────────────────────────────────────────
 banner "Phase 6 — Commit + Tag"
 
-if [ ! -d "$ROOT/.git" ]; then
+if [ "${WG_VERIFY:-0}" = "1" ]; then
+  ok "Verify mode (WG_VERIFY=1) — skipping commit + tag"
+elif [ ! -d "$ROOT/.git" ]; then
   warn "No git repo found — skipping commit. Run: git init"
 else
   git -C "$ROOT" add \
     server/api.ts \
     finalize-mvp.sh \
     dist/manifest.json \
-    dist/WHITEGLOVE_SYSTEM_DIRECTIVE_medical.json \
+    "dist/WHITEGLOVE_SYSTEM_DIRECTIVE_${SECTOR}.json" \
     dist/WHITEGLOVE_SYSTEM_DIRECTIVE_general.json
 
   git -C "$ROOT" commit -m "$(cat <<'EOF'
@@ -232,9 +263,11 @@ EOF
 fi
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
+SHIP_LABEL="SHIPPED"
+[ "${WG_VERIFY:-0}" = "1" ] && SHIP_LABEL="VERIFIED (verify mode — nothing committed or tagged)"
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}  WhiteGlove v1.0.0-mvp — SHIPPED${NC}"
+echo -e "${GREEN}  WhiteGlove v1.0.0-mvp [$CORPUS corpus] — ${SHIP_LABEL}${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo "  Vault:    $SHARD_COUNT shards indexed"

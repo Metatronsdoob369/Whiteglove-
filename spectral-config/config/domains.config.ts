@@ -29,7 +29,7 @@ const LAWLIBRA_URL = process.env.LAWLIBRA_URL ?? null;
 export const domains: DomainManifest = {
   manifestVersion: "1.0",
   refinery: "spectral-terrain",
-  updated: "2026-07-08",
+  updated: "2026-07-26",
   principle:
     "The refinery knows nothing downstream. Crude in, refined fuel out, " +
     "sorted by intended application. The agent/receptacle is the vehicle " +
@@ -404,6 +404,60 @@ export const domains: DomainManifest = {
         "secondaryStore (local-fast-path). ingest.script builds the canonical " +
         "store (scripts/ingest_husk.py); the secondary vault is rebuilt by " +
         "brain/indexer/build-index.ts.",
+    },
+
+    // ─── PROVEN (static low-dim): NAICS industry terrain ───────────────
+    {
+      id: "naics-2022",
+      description:
+        "US NAICS 2022 sector taxonomy as sealed static terrain. " +
+        "20 official sectors → industry fingerprint 20-D → PCA display 3-D. " +
+        "No DNA extract — procedural taxonomy, not authorial voice. " +
+        "Agents mount the pack (or Qdrant naics-heatmap-3) to tell industries apart.",
+      status: "proven",
+      dataType: "naics-sector-taxonomy",
+      geometry: "static-heatmap",
+      processor: "industry-signal-pca",
+      dimensionality: {
+        dims: 3,
+        rationale:
+          "Static taxonomy. Compute stays at 20-D industry fingerprint; " +
+          "display/navigation is PCA-3 (heat_cv≈0.26). Obeys dimensionPolicy " +
+          "(static → lowest dims that still route heat).",
+        temporalAxis: false,
+      },
+      store: {
+        kind: "qdrant",
+        location: "naics-heatmap-3",
+        embedModel: null, // sealed pack coords — no embed at query time
+        endpoint: QDRANT_PI_URL,
+      },
+      ingest: {
+        script: "spectral-terrain/scripts/build_naics_3d_pack.py",
+        refineryStage: null,
+      },
+      receptacle: {
+        kind: "cli-query",
+        ref: "spectral-terrain/scripts/query_naics.py",
+        tools: ["naics_query"],
+      },
+      silence: {
+        enabled: true,
+        signal: "title-overlap-or-code",
+        threshold: 0.34,
+        closerIs: "higher",
+        calibration: {
+          calibrated: true,
+          corpus: "naics-2022-3d.pack.json",
+          corpusSize: 20,
+          date: "2026-07-26",
+          note: "resolve() silences below 0.34 overlap or on ambiguous top-2.",
+        },
+      },
+      notes:
+        "Pack: spectral-terrain/store/naics-2022-3d.pack.json (blake2b sealed). " +
+        "Upsert: scripts/upsert_naics_3d_qdrant.py. Hydra holder_naics overlay " +
+        "is the operational $ path; this domain is the industry map accessory.",
     },
 
     // ─── OPERATIONAL: property/financial graph ────────────────────────

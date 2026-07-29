@@ -439,7 +439,7 @@ export const domains: DomainManifest = {
       receptacle: {
         kind: "cli-query",
         ref: "spectral-terrain/scripts/query_naics.py",
-        tools: ["naics_query"],
+        tools: ["terrain_query"], // the registered tool; "naics_query" exists nowhere
       },
       silence: {
         enabled: true,

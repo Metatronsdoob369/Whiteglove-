@@ -76,6 +76,17 @@
       ],
       "note": "Real-world result: Open Claw source fed through this path surfaced vulns it hadn't seen by reading its own source directly. [STATED] FOLD DISAGREEMENT #3 RESOLVED (arbitration, PR #26): Qdrant husk-whiteglove is the canonical store; the local vault-index is the secondaryStore (local-fast-path). ingest.script builds the canonical store (scripts/ingest_husk.py); the secondary vault is rebuilt by brain/indexer/build-index.ts."
     },
+    "naics-2022": {
+      "processor": "industry-signal-pca",
+      "collection": "naics-heatmap-3",
+      "dims": 3,
+      "receptacle": "terrain_query",
+      "ingest_script": "spectral-terrain/scripts/build_naics_3d_pack.py",
+      "tools": [
+        "terrain_query"
+      ],
+      "note": "Pack: spectral-terrain/store/naics-2022-3d.pack.json (blake2b sealed). Upsert: scripts/upsert_naics_3d_qdrant.py. Hydra holder_naics overlay is the operational $ path; this domain is the industry map accessory."
+    },
     "property-data": {
       "processor": "eve-v2-gat",
       "collection": "hydra-unclaimed",

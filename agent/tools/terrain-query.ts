@@ -20,8 +20,25 @@ const QUERY_SCRIPT = join(
 function runNaics(args: string[]): Promise<{ code: number; json: unknown }> {
   return new Promise((resolve) => {
     const child = spawn("conda", ["run", "-n", "agents", "python", QUERY_SCRIPT, ...args], {
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
     });
+
+    let settled = false;
+    const resolveOnce = (value: { code: number; json: unknown }) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    const TIMEOUT_MS = 15_000;
+    const tid = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolveOnce({
+        code: 1,
+        json: { ok: false, silence: true, reason: `naics query timed out after ${TIMEOUT_MS}ms` },
+      });
+    }, TIMEOUT_MS);
+
     let out = "";
     let err = "";
     child.stdout.on("data", (d: Buffer) => {
@@ -30,14 +47,24 @@ function runNaics(args: string[]): Promise<{ code: number; json: unknown }> {
     child.stderr.on("data", (d: Buffer) => {
       err += d.toString();
     });
+
+    child.on("error", (e) => {
+      clearTimeout(tid);
+      resolveOnce({
+        code: 1,
+        json: { ok: false, silence: true, reason: `naics query spawn failed: ${e.message}` },
+      });
+    });
+
     child.on("close", (code) => {
+      clearTimeout(tid);
       const raw = out.trim() || err.trim();
       try {
-        resolve({ code: code ?? 1, json: JSON.parse(raw) });
+        resolveOnce({ code: code ?? 1, json: JSON.parse(raw) });
       } catch {
-        resolve({
+        resolveOnce({
           code: code ?? 1,
-          json: { ok: false, silence: true, reason: raw || "naics query failed" }
+          json: { ok: false, silence: true, reason: raw || "naics query failed" },
         });
       }
     });

@@ -16,24 +16,26 @@
 import { z } from "zod";
 
 /**
- * The four geometries from TGIL_VISION. Each matches a data type whose
- * natural structure it encodes. Adding a fifth means adding it here
+ * The geometries from TGIL_VISION. Each matches a data type whose
+ * natural structure it encodes. Adding another means adding it here
  * first — the schema forces the taxonomy to stay explicit.
  */
 export const GeometryKind = z.enum([
-  "temporal",     // sequence encodes causality: game state, mempool, liquidity
-  "topological",  // settled vs contested regions: legal doctrine, medical corpus
-  "fingerprint",  // similarity + silence-over-fabrication: repo husks
-  "graph",        // entity relationships: property/financial records (GAT)
+  "temporal",       // sequence encodes causality: game state, mempool, liquidity
+  "topological",    // settled vs contested regions: legal doctrine, medical corpus
+  "fingerprint",    // similarity + silence-over-fabrication: repo husks
+  "graph",          // entity relationships: property/financial records (GAT)
+  "static-heatmap", // sealed taxonomy, no drift and no re-embed: NAICS sectors
 ]);
 export type GeometryKind = z.infer<typeof GeometryKind>;
 
 /** The processors that live in the refinery. */
 export const Processor = z.enum([
-  "temporal-concat",   // engine/embed.ts — [v_t-1 | v_t | v_t+1]
-  "laplacian-heatmap", // legal_heatmap.py — heat kernel diffusion
-  "simhash-128",       // simhash-guard.ts — bitwise fingerprint index
-  "eve-v2-gat",        // eve_v2.py — GAT + spectral over graphs
+  "temporal-concat",    // engine/embed.ts — [v_t-1 | v_t | v_t+1]
+  "laplacian-heatmap",  // legal_heatmap.py — heat kernel diffusion
+  "simhash-128",        // simhash-guard.ts — bitwise fingerprint index
+  "eve-v2-gat",         // eve_v2.py — GAT + spectral over graphs
+  "industry-signal-pca", // build_naics_3d_pack.py — 20-D fingerprint → PCA-3 display
 ]);
 export type Processor = z.infer<typeof Processor>;
 
@@ -57,6 +59,7 @@ export const RetrievalSignal = z.enum([
   "hamming",           // bitwise drift on SimHash signatures
   "knn-temporal",      // nearest neighbor in temporal-concat space
   "contract-schema",   // Zod schema-refusal: "if it ain't in the schema it ain't real"
+  "title-overlap-or-code", // sealed taxonomy: label overlap, or an exact code hit
   "none",              // pure consumer — silence delegated to an upstream receptacle
 ]);
 export type RetrievalSignal = z.infer<typeof RetrievalSignal>;

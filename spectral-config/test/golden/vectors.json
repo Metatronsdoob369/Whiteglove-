@@ -1,0 +1,112 @@
+[
+  {
+    "name": "empty-object",
+    "body": {},
+    "canonical_utf8_b64": "e30=",
+    "expected_cid": "b2-256:9327a492264ecac0806b031b780241d86cabe38348fe49c4c5a610ee584cfbaa"
+  },
+  {
+    "name": "key-sort-bmp",
+    "body": {
+      "0": 6,
+      "b": 1,
+      "a": 2,
+      "Z": 3,
+      "~": 4,
+      "é": 5,
+      " ": 7
+    },
+    "canonical_utf8_b64": "eyIgIjo3LCIwIjo2LCJaIjozLCJhIjoyLCJiIjoxLCJ+Ijo0LCLDqSI6NX0=",
+    "expected_cid": "b2-256:12fb771930f18a51cccb9d28b27aad5fdd627aa3730bbcdec4e8f35d8b77ac9d"
+  },
+  {
+    "name": "key-sort-astral-vs-bmp",
+    "body": {
+      "𝄞": 1,
+      "！": 2
+    },
+    "canonical_utf8_b64": "eyLwnYSeIjoxLCLvvIEiOjJ9",
+    "expected_cid": "b2-256:97176b51652626245e9b9f287f4aaa050a5b86e051cf481292e12566f2c2989e"
+  },
+  {
+    "name": "nesting-and-primitives",
+    "body": {
+      "nul": null,
+      "t": true,
+      "f": false,
+      "ints": [
+        0,
+        1,
+        -1,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "deep": {
+        "a": [
+          {
+            "b": [
+              {
+                "c": null
+              }
+            ]
+          }
+        ]
+      },
+      "empty_arr": [],
+      "empty_obj": {}
+    },
+    "canonical_utf8_b64": "eyJkZWVwIjp7ImEiOlt7ImIiOlt7ImMiOm51bGx9XX1dfSwiZW1wdHlfYXJyIjpbXSwiZW1wdHlfb2JqIjp7fSwiZiI6ZmFsc2UsImludHMiOlswLDEsLTEsNDIsOTAwNzE5OTI1NDc0MDk5MSwtOTAwNzE5OTI1NDc0MDk5MV0sIm51bCI6bnVsbCwidCI6dHJ1ZX0=",
+    "expected_cid": "b2-256:bcac81e82384b2ead27432ee9fb7a1a29eecb3238ce57991708af1f07bb042f7"
+  },
+  {
+    "name": "string-escapes",
+    "body": {
+      "quote": "say \"hi\"",
+      "backslash": "a\\b",
+      "tab_newline": "col1\tcol2\nrow2",
+      "accents_nfc": "café résumé",
+      "emoji_paired": "🎮 terrain 🗺️",
+      "slash": "a/b"
+    },
+    "canonical_utf8_b64": "eyJhY2NlbnRzX25mYyI6ImNhZsOpIHLDqXN1bcOpIiwiYmFja3NsYXNoIjoiYVxcYiIsImVtb2ppX3BhaXJlZCI6IvCfjq4gdGVycmFpbiDwn5e677iPIiwicXVvdGUiOiJzYXkgXCJoaVwiIiwic2xhc2giOiJhL2IiLCJ0YWJfbmV3bGluZSI6ImNvbDFcdGNvbDJcbnJvdzIifQ==",
+    "expected_cid": "b2-256:cc55a25fd917e6f68eb9e272ddc9b61531e32b442d9000e90d63722676ef40b3"
+  },
+  {
+    "name": "decimal-strings-and-vecref-shape",
+    "body": {
+      "shatter": "1.2681",
+      "heat": "-0.0431",
+      "exp": "1.7320508075688772e0",
+      "vec": {
+        "b64": "AAAAAAAA8D8AAAAAAAAAQA==",
+        "count": 2,
+        "dtype": "f64le"
+      }
+    },
+    "canonical_utf8_b64": "eyJleHAiOiIxLjczMjA1MDgwNzU2ODg3NzJlMCIsImhlYXQiOiItMC4wNDMxIiwic2hhdHRlciI6IjEuMjY4MSIsInZlYyI6eyJiNjQiOiJBQUFBQUFBQThEOEFBQUFBQUFBQVFBPT0iLCJjb3VudCI6MiwiZHR5cGUiOiJmNjRsZSJ9fQ==",
+    "expected_cid": "b2-256:bba9716605abc644331b8db94a9baae92fe05b701ace63ab2189270e52b10c2c"
+  },
+  {
+    "name": "tile-shaped",
+    "body": {
+      "schema": "terrain-tile-v1",
+      "canon_version": 1,
+      "domain": "roblox-luau",
+      "prev_cid": null,
+      "scores": {
+        "corpus_support": 228,
+        "shatter": "1.2681",
+        "shatter_scale": "concat-sqrt3-l2"
+      },
+      "window": {
+        "t_now": {
+          "epoch_ms": 1754380800000,
+          "tick": "12345.671875"
+        }
+      }
+    },
+    "canonical_utf8_b64": "eyJjYW5vbl92ZXJzaW9uIjoxLCJkb21haW4iOiJyb2Jsb3gtbHVhdSIsInByZXZfY2lkIjpudWxsLCJzY2hlbWEiOiJ0ZXJyYWluLXRpbGUtdjEiLCJzY29yZXMiOnsiY29ycHVzX3N1cHBvcnQiOjIyOCwic2hhdHRlciI6IjEuMjY4MSIsInNoYXR0ZXJfc2NhbGUiOiJjb25jYXQtc3FydDMtbDIifSwid2luZG93Ijp7InRfbm93Ijp7ImVwb2NoX21zIjoxNzU0MzgwODAwMDAwLCJ0aWNrIjoiMTIzNDUuNjcxODc1In19fQ==",
+    "expected_cid": "b2-256:7968fec194a679d5eec8ae5c6d1c7bda57b8a5f7066574a650134dfde205071c"
+  }
+]

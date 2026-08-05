@@ -5,6 +5,7 @@
   "scripts": {
     "check": "tsx src/selfcheck.ts",
     "check:refusal": "tsx src/refusal-check.ts",
+    "check:canon": "tsx test/canon-golden.ts && tsx test/canon-refusals.ts && python3 test/golden/canon_ref.py",
     "generate:v2": "tsx src/generate-v2.ts",
     "typecheck": "tsc --noEmit"
   },

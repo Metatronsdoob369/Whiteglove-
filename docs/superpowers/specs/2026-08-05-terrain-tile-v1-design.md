@@ -75,8 +75,8 @@ No float ever appears as a JSON number. Key order is irrelevant (canonicalizatio
 | `/license/spdx` | SPDX \| `"NOASSERTION"` | R | Deny-listed values refuse at seal. |
 | `/license/source_class` | enum `public-repo` \| `synthetic` \| `owner-authored` | R | |
 | `/license/derivative_release` | enum `geometry-only` \| `geometry-and-embeddings` | R | `geometry-only` + `full-concat` ⇒ refuse. |
-| `/commitments/source/{key_id,mac}` | string, hex64 | R | **Keyed** BLAKE2b-256 MAC of source text — proves provenance without disclosure. Unkeyed digest would be a confirmation oracle over enumerable public repos. |
-| `/commitments/locator/{key_id,mac}` | string, hex64 | R | Keyed MAC over `repo_url‖commit_sha‖path`. |
+| `/commitments/source_mac_key_id`, `/commitments/source_mac` | string, hex64 | R | **Keyed** BLAKE2b MAC of source text — proves provenance without disclosure. Unkeyed digest would be a confirmation oracle over enumerable public repos. Flat names: `source` itself is a forbidden key, and the deny-list stays absolute rather than growing exemptions. |
+| `/commitments/locator_mac_key_id`, `/commitments/locator_mac` | string, hex64 | R | Keyed MAC over `repo_url‖commit_sha‖path`. |
 | `/redaction/{category}` | integer counts | R | Closed enum keys only; free-text summaries banned. |
 | `/notes` | enum-code array | O | Not free text. |
 
@@ -139,7 +139,7 @@ Binds content two ways: (1) `tiles` = lexicographically sorted, deduplicated `ci
 
 Adjacency lives in the manifest, not tiles (mutual tile references are unhashable): `knn: {k, metric, edges: [[i, j, "weight"], …]}` with indices into the sorted `tiles` array, `i < j`, sorted, no self-loops. Out-of-pack neighbors are dropped and counted in `redaction.neighbor_ref_withheld`.
 
-Other required fields: `schema`, `canon_version`, `pack_exclusions`, `domain`, `edition` (SKU, e.g. `roblox-luau-2026-08`), `snapshot {cut_at, window_from, window_to}`, `prev_pack_cid`, `tile_count` (checked = len), `geometry` (echoes tile conventions once; refuse if any tile disagrees), `centroid {cid, corpus_size, stability|null, stability_target}` (**`null` = genesis, never `0`**), `silence` (the actual calibrated gate — refuse to build if `calibrated: false`), `confidence_model`, `license/summary` (spdx counts), `redaction_totals`, `status_list_ref` (local logical name), `carrier_note` (free text OK here — no per-item source material), `/seal` (`sig_scope: "pack"`).
+Other required fields: `schema`, `canon_version`, `pack_exclusions`, `domain`, `edition` (SKU, e.g. `roblox-luau-2026-08`), `snapshot {cut_at, window_from, window_to}`, `prev_pack_cid`, `tile_count` (checked = len), `geometry` (echoes tile conventions once; refuse if any tile disagrees), `centroid {cid, corpus_size, stability|null, stability_target}` (**`null` = genesis, never `0`**), `silence` (the gate for the ops this pack is sold under: `gate: "exact-match"` for content-addressed retrieval — no threshold, no calibration required, which keeps Track C off the Phase-5 critical path; `gate: "threshold"` requires `calibrated: true` and refuses placeholder values), `confidence_model` (nullable until the shatter scale is resolved; required for any threshold-gated edition), `license/summary` (spdx counts), `redaction_totals`, `status_list_ref` (local logical name), `carrier_note` (free text OK here — no per-item source material), `/seal` (`sig_scope: "pack"`).
 
 **Confidence: components in the tile, model in the pack, scalar nowhere.** The pack ships `confidence_model` (id, inputs, `shatter_ref` percentiles, weights, functional form) and the consumer computes the scalar. Reproducible by construction; a number that doesn't exist can't drift. Blocked on Track C resolving the shatter-scale contradiction.
 

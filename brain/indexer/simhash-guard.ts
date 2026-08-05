@@ -5,15 +5,13 @@
  * Hamming distance for spectral shard routing on CPU-bound environments.
  * 
  * Architecture:
- * - Twin 64-bit accumulators with domain-separated BLAKE2b salts.
+ * - Twin 64-bit accumulators with domain-separated FNV-1a salt folding.
  * - 128-bit BigInt signature per shard.
  * - XOR + popcount for microsecond drift evaluation.
- * 
+ *
  * Based on: Charikar (2002) — Locality-Sensitive Hashing.
  * Adapted from airgapped mentor directive for WhiteGlove deployment.
  */
-
-import * as crypto from "crypto";
 
 export interface SimHashSignature {
   /** The 128-bit signature as a BigInt */
@@ -240,26 +238,6 @@ export class SimHashDriftGuard {
       }
     }
     return sig;
-  }
-
-  /**
-   * 8-byte BLAKE2b digest with domain-separation salt prepended.
-   * Node.js crypto doesn't support the `person` parameter natively,
-   * so we prepend the salt to the input buffer (functionally equivalent).
-   */
-  private hashToken(token: number, personSalt: Buffer): bigint {
-    // Optimization: Skip crypto.createHash for every single token.
-    // SimHash works fine with any good hash. FNV-1a 64-bit is much faster.
-    // We combine the salt and the token.
-    let hash = 0xcbf29ce484222325n;
-    const saltStr = personSalt.toString('utf-8');
-    for (let i = 0; i < saltStr.length; i++) {
-      hash ^= BigInt(saltStr.charCodeAt(i));
-      hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
-    }
-    hash ^= BigInt(token);
-    hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
-    return hash;
   }
 
   /**

@@ -1,12 +1,17 @@
 /**
- * server.ts — boot the paid mount server.
+ * server.ts — boot the mount kernel, with or without a listener.
  *
  * Boot order, all fail-closed:
  *   1. sweep env for spending-key-shaped values (refuse)
  *   2. load generated manifests; verify every digest against generated.lock
  *   3. load + verify each substrate pack ONCE (merkle root + detached seal)
  *   4. open the ledger, reconcile anything a previous boot left mid-flight
- *   5. admit mounts, then listen
+ *   5. admit mounts and build the kernel
+ *   6. attach transports
+ *
+ * Steps 1–5 are `bootKernelOnly` and know nothing about HTTP; `boot` is that
+ * plus the paid listener. A second transport composes the same core rather
+ * than paying for an HTTP server object it will never listen on.
  *
  * Usage:
  *   node dist/server.js                 # stub facilitator (local simulation)
@@ -20,28 +25,54 @@ import { Kernel, type Mount, type MountOperation } from "./kernel.js";
 import { StubFacilitator, HttpFacilitator, type FacilitatorClient } from "./facilitator.js";
 import { createPaidServer } from "./http.js";
 import { assertNoSpendingKeysInEnv, resolvePayTo, SecretRefusal } from "./secrets.js";
-import { KERNEL_VERSION } from "./index.js";
+import { KERNEL_VERSION } from "./version.js";
 
-export interface BootOptions {
+export interface KernelBootOptions {
   manifestsDir: string;
   packsDir: string;
   ledgerPath: string;
-  port: number;
   facilitator?: FacilitatorClient;
-  requireTls?: boolean;
   /** Test-only: bypass env resolution for payTo. */
   payToOverride?: string;
 }
 
-export interface Booted {
-  server: import("node:http").Server;
+export interface BootOptions extends KernelBootOptions {
+  port: number;
+  requireTls?: boolean;
+}
+
+/** The transport-facing slice of runtime-policy.json, digest-verified at boot. */
+export interface RuntimePolicy {
+  paid: {
+    requireTls: boolean;
+    rateLimit: { windowSeconds: number; maxRequests: number; anonymous402MaxRequests: number };
+  };
+  networks: { mainnetStartupBlocked: string[] };
+}
+
+export interface BootedKernel {
   kernel: Kernel;
   ledger: Ledger;
   mounts: Map<string, Mount>;
+  /** Verified policy a transport needs (TLS posture). Ceilings are already in the kernel. */
+  policy: RuntimePolicy;
+  /** code → HTTP status, for edges that speak HTTP. Verified against generated.lock. */
+  refusals: Record<string, { http: number }>;
   close(): void;
 }
 
-export async function boot(opts: BootOptions): Promise<Booted> {
+export interface Booted extends BootedKernel {
+  server: import("node:http").Server;
+}
+
+/**
+ * Ledger + mounts + kernel. No listener, no socket, no HTTP server object.
+ *
+ * This is the whole paid capability minus a way in. Every fail-closed check
+ * lives here — including the stub-facilitator loopback refusal — so a transport
+ * cannot acquire a kernel that skipped one.
+ */
+export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKernel> {
   assertNoSpendingKeysInEnv();
 
   // ── generated artifacts + lock
@@ -73,10 +104,7 @@ export async function boot(opts: BootOptions): Promise<Booted> {
   // renders statuses from this and nothing else, so the code a client reads in
   // our OpenAPI and the status it receives are the same fact.
   const refusals = read("refusals.json") as { codes: Record<string, { http: number }> };
-  const policy = read("runtime-policy.json") as {
-    paid: { requireTls: boolean; rateLimit: { windowSeconds: number; maxRequests: number; anonymous402MaxRequests: number } };
-    networks: { mainnetStartupBlocked: string[] };
-  };
+  const policy = read("runtime-policy.json") as RuntimePolicy;
 
   // ── mainnet stays blocked without a signed gate artifact
   const gatePath = path.join(opts.manifestsDir, "mainnet-gate.json");
@@ -186,20 +214,38 @@ export async function boot(opts: BootOptions): Promise<Booted> {
     max: policy.paid.rateLimit.maxRequests,
     anonymousMax: policy.paid.rateLimit.anonymous402MaxRequests,
   });
-  const server = createPaidServer(kernel, {
-    port: opts.port,
-    requireTls: opts.requireTls ?? policy.paid.requireTls,
-    refusals: refusals.codes,
-  });
-
   return {
-    server,
     kernel,
     ledger,
     mounts,
+    policy,
+    refusals: refusals.codes,
+    close() {
+      ledger.close();
+    },
+  };
+}
+
+/**
+ * The kernel plus a paid HTTP listener, constructed but not listening.
+ *
+ * `requireTls` defaults to the verified runtime policy, so omitting it fails
+ * closed rather than open.
+ */
+export async function boot(opts: BootOptions): Promise<Booted> {
+  const core = await bootKernelOnly(opts);
+  const server = createPaidServer(core.kernel, {
+    port: opts.port,
+    requireTls: opts.requireTls ?? core.policy.paid.requireTls,
+    refusals: core.refusals,
+  });
+
+  return {
+    ...core,
+    server,
     close() {
       server.close();
-      ledger.close();
+      core.close();
     },
   };
 }

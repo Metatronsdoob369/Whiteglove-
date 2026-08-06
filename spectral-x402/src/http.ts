@@ -1,20 +1,59 @@
 /**
  * http.ts — paid transport. node:http only, no framework.
  *
- * Transport translates kernel outcomes into HTTP. It cannot create alternate
- * payment or recovery semantics — every status and every code comes from the
- * kernel or from the generated refusals table.
+ * This edge owns exactly four things: wire decode (path → operationId, headers
+ * → paymentId / payment payload), TLS posture, HTTP-native rendering of a
+ * kernel outcome, and calling delivery-ack once its own send has completed.
+ * Everything else — arg validation, rate limiting, admission, replay, ledger
+ * policy — is the kernel's, so a second transport inherits it rather than
+ * reimplementing it.
+ *
+ * It cannot create alternate payment or recovery semantics: every code comes
+ * from the kernel, and every refusal status from the generated refusals table.
  */
 import * as http from "node:http";
-import { Kernel, type KernelRequest } from "./kernel.js";
+import { Kernel, type KernelOutcome, type PaidInvocation } from "./kernel.js";
 import type { PaymentPayload } from "./facilitator.js";
 
 const BODY_CAP = 65536;
 
+/** code → HTTP status, as published in the generated `refusals.json`. */
+export type RefusalTable = Record<string, { http: number }>;
+
 export interface HttpOptions {
   port: number;
   requireTls: boolean;
+  refusals: RefusalTable;
   rateLimit: { windowMs: number; max: number; anonymousMax: number };
+}
+
+/**
+ * The ONE place an outcome becomes an HTTP status.
+ *
+ * `challenge` / `accepted` / `delivered` are fixed by x402 itself (402 / 202 /
+ * 200), so they follow `kind` and no table may move them. A refusal's status
+ * comes from the generated refusals table — the same table our OpenAPI
+ * publishes — so the status we send cannot drift from the status we document.
+ * The table is digest-verified against generated.lock at boot.
+ */
+export function statusFor(outcome: KernelOutcome, refusals: RefusalTable): number {
+  switch (outcome.kind) {
+    case "challenge":
+      return 402;
+    case "accepted":
+      return 202;
+    case "delivered":
+      return 200;
+    case "refused": {
+      const declared = refusals[outcome.code]?.http;
+      // Every code the kernel itself emits is declared. The only undeclared
+      // code that can reach here is a facilitator-supplied verify reason
+      // passed through verbatim — a payment fault, so 402 is the honest read.
+      if (declared === undefined) return 402;
+      // A refusal never renders as success, whatever a table claims.
+      return declared >= 400 ? declared : 500;
+    }
+  }
 }
 
 interface Bucket {
@@ -125,14 +164,23 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
         }
       }
 
-      const kreq: KernelRequest = { mountId, operationId, args, paymentId, payment };
-      const outcome = await kernel.handle(kreq, url.pathname);
+      const inv: PaidInvocation = {
+        mountId,
+        operationId,
+        args,
+        paymentId,
+        payment,
+        transport: "http",
+        clientKey: ip,
+        resource: url.pathname,
+      };
+      const outcome = await kernel.handle(inv);
 
       switch (outcome.kind) {
         case "challenge":
           return send(
             res,
-            402,
+            statusFor(outcome, opts.refusals),
             {
               x402Version: 2,
               error: outcome.code,
@@ -141,15 +189,19 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
             { "x-challenge-epoch": outcome.challengeEpoch }
           );
         case "refused":
-          return send(res, outcome.status, {
+          return send(res, statusFor(outcome, opts.refusals), {
             code: outcome.code,
             ...(outcome.callId ? { callId: outcome.callId } : {}),
             ...(outcome.detail ? { detail: outcome.detail } : {}),
           });
         case "accepted":
-          return send(res, 202, { code: outcome.code, callId: outcome.callId, retryAfterMs: 250 });
+          return send(res, statusFor(outcome, opts.refusals), {
+            code: outcome.code,
+            callId: outcome.callId,
+            retryAfterMs: 250,
+          });
         case "delivered": {
-          send(res, 200, outcome.bytes, {
+          send(res, statusFor(outcome, opts.refusals), outcome.bytes, {
             "content-type": outcome.contentType,
             "x-call-id": outcome.callId,
             "x-payment-response": Buffer.from(JSON.stringify(outcome.receipt)).toString("base64"),

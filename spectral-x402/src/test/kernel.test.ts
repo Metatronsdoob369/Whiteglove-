@@ -28,6 +28,8 @@ const MANIFESTS = path.resolve(__dirname, "../../../manifests");
 const PACKS = path.resolve(__dirname, "../../packs");
 const PAY_TO = "0x0000000000000000000000000000000000000dev";
 const MOUNT = "roblox-luau";
+/** Fixed rate-limit identity: these tests exercise policy, not the limiter. */
+const CLIENT_KEY = "char-test";
 
 let seq = 0;
 /** Clears PAYMENT_ID_MIN_LENGTH (16) regardless of clock or counter width. */
@@ -81,10 +83,16 @@ async function withKernel(
     pay?: PaymentPayload,
     op = "tile_fetch"
   ): Promise<KernelOutcome> =>
-    b.kernel.handle(
-      { mountId: MOUNT, operationId: op, args, paymentId: pid, payment: pay },
-      `/${MOUNT}/${op}`
-    );
+    b.kernel.handle({
+      mountId: MOUNT,
+      operationId: op,
+      args,
+      paymentId: pid,
+      payment: pay,
+      transport: "http",
+      clientKey: CLIENT_KEY,
+      resource: `/${MOUNT}/${op}`,
+    });
 
   const count = (table: string, where = "1=1"): number =>
     (b.ledger.db.prepare(`SELECT COUNT(*) c FROM ${table} WHERE ${where}`).get() as { c: number }).c;
@@ -260,17 +268,27 @@ test("char: unknown cid never settles and lands execution_failed", async () => {
 
 test("char: unknown mount and unknown operation are refused as args_invalid", async () => {
   await withKernel("valid", async ({ b, cid }) => {
-    const bad = await b.kernel.handle(
-      { mountId: "nope", operationId: "tile_fetch", args: { cid: cid(0) }, paymentId: paymentId() },
-      "/nope/tile_fetch"
-    );
+    const bad = await b.kernel.handle({
+      mountId: "nope",
+      operationId: "tile_fetch",
+      args: { cid: cid(0) },
+      paymentId: paymentId(),
+      transport: "http",
+      clientKey: CLIENT_KEY,
+      resource: "/nope/tile_fetch",
+    });
     assert.equal(bad.kind, "refused");
     if (bad.kind === "refused") assert.equal(bad.code, "args_invalid");
 
-    const badOp = await b.kernel.handle(
-      { mountId: MOUNT, operationId: "not_an_op", args: {}, paymentId: paymentId() },
-      `/${MOUNT}/not_an_op`
-    );
+    const badOp = await b.kernel.handle({
+      mountId: MOUNT,
+      operationId: "not_an_op",
+      args: {},
+      paymentId: paymentId(),
+      transport: "http",
+      clientKey: CLIENT_KEY,
+      resource: `/${MOUNT}/not_an_op`,
+    });
     assert.equal(badOp.kind, "refused");
     if (badOp.kind === "refused") assert.equal(badOp.code, "args_invalid");
   });

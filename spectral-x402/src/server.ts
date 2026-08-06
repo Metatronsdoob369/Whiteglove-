@@ -69,6 +69,10 @@ export async function boot(opts: BootOptions): Promise<Booted> {
       routes: Array<{ operationId: string; resultKind: string; deadlineMs: number; maxResultBytes: number; priceAtomic: string }>;
     }>;
   };
+  // The published refusal vocabulary, digest-verified above. The transport
+  // renders statuses from this and nothing else, so the code a client reads in
+  // our OpenAPI and the status it receives are the same fact.
+  const refusals = read("refusals.json") as { codes: Record<string, { http: number }> };
   const policy = read("runtime-policy.json") as {
     paid: { requireTls: boolean; rateLimit: { windowSeconds: number; maxRequests: number; anonymous402MaxRequests: number } };
     networks: { mainnetStartupBlocked: string[] };
@@ -179,6 +183,7 @@ export async function boot(opts: BootOptions): Promise<Booted> {
   const server = createPaidServer(kernel, {
     port: opts.port,
     requireTls: opts.requireTls ?? policy.paid.requireTls,
+    refusals: refusals.codes,
     rateLimit: {
       windowMs: policy.paid.rateLimit.windowSeconds * 1000,
       max: policy.paid.rateLimit.maxRequests,

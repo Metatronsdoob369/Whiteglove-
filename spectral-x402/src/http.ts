@@ -9,7 +9,24 @@
  * reimplementing it.
  *
  * It cannot create alternate payment or recovery semantics: every code comes
- * from the kernel, and every refusal status from the generated refusals table.
+ * from the kernel, and every KERNEL OUTCOME is rendered by `statusFor` from the
+ * generated refusals table.
+ *
+ * Four sends deliberately never reach the kernel and so never reach
+ * `statusFor` — they are edge-local facts about the request, not refusals of a
+ * paid call:
+ *
+ *   - `405` for a non-GET method (route shape)
+ *   - `404` for a path with too few segments, and `404` for an unrecognized
+ *     verb (route shape — there is no mount/operation to refuse)
+ *   - `500` in the catch-all, where we have no outcome at all
+ *
+ * All four reuse `args_invalid` / `capability_unavailable` as their body code
+ * because the generated table declares no route-shape or internal-error code,
+ * so the SAME code can leave this server at 400 (from the table, via the
+ * kernel), 404, 405, or 500 depending on which line produced it. Those values
+ * are what this endpoint has always sent and are left alone here; giving them
+ * their own declared codes is spectral-config work.
  */
 import * as http from "node:http";
 import { Kernel, type KernelOutcome, type PaidInvocation } from "./kernel.js";
@@ -27,13 +44,21 @@ export interface HttpOptions {
 }
 
 /**
- * The ONE place an outcome becomes an HTTP status.
+ * The ONE place a KERNEL OUTCOME becomes an HTTP status.
  *
  * `challenge` / `accepted` / `delivered` are fixed by x402 itself (402 / 202 /
  * 200), so they follow `kind` and no table may move them. A refusal's status
- * comes from the generated refusals table — the same table our OpenAPI
- * publishes — so the status we send cannot drift from the status we document.
- * The table is digest-verified against generated.lock at boot.
+ * comes from the generated `refusals.json`, digest-verified against
+ * generated.lock at boot — so an outcome's status cannot drift from that table.
+ *
+ * The guarantee stops there, deliberately. `refusals.json` is NOT the same
+ * document as the generated OpenAPI: openapi.json enumerates
+ * [200, 202, 402, 404, 409, 410, 503] per path and publishes none of
+ * args_invalid→400, rate_limited→429, body_too_large→413 or
+ * tile_withdrawn→451. Sourcing status here makes the wire consistent with
+ * refusals.json and nothing more — a client reading our OpenAPI still cannot
+ * enumerate every status we send. Reconciling the two artifacts is
+ * spectral-config work, not something this function can fix.
  */
 export function statusFor(outcome: KernelOutcome, refusals: RefusalTable): number {
   switch (outcome.kind) {
@@ -94,9 +119,13 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
         return send(res, 200, kernelDiscovery(kernel));
       }
 
+      // Edge-local, not a kernel outcome: no declared code exists for "wrong
+      // method", so args_invalid carries a status the table never assigned it.
       if (req.method !== "GET") return send(res, 405, { code: "args_invalid", detail: "GET only" });
 
       // /<mount>/tile/<cid> | /<mount>/proof/<cid> | /<mount>/manifest
+      // Route shape, also edge-local: with no mount or verb there is no paid
+      // call to refuse, so these 404s are not table-derived either.
       if (parts.length < 2) return send(res, 404, { code: "args_invalid" });
       const mountId = parts[0];
       const verb = parts[1];
@@ -194,7 +223,9 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
         }
       }
     } catch (e) {
-      // Never leak err.message to a paid caller.
+      // Never leak err.message to a paid caller. Edge-local: there is no
+      // outcome to render, so this 500 is ours, not the table's 503 for
+      // capability_unavailable.
       send(res, 500, { code: "capability_unavailable" });
       process.stderr.write(`[kernel] ${(e as Error).stack ?? String(e)}\n`);
     }

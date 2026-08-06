@@ -24,7 +24,6 @@ export interface HttpOptions {
   port: number;
   requireTls: boolean;
   refusals: RefusalTable;
-  rateLimit: { windowMs: number; max: number; anonymousMax: number };
 }
 
 /**
@@ -56,53 +55,7 @@ export function statusFor(outcome: KernelOutcome, refusals: RefusalTable): numbe
   }
 }
 
-interface Bucket {
-  windowStart: number;
-  paid: number;
-  anon: number;
-}
-
 export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server {
-  const buckets = new Map<string, Bucket>();
-
-  // Hard ceiling on tracked clients. Without eviction every distinct source
-  // address is a permanent allocation, so the rate limiter becomes the
-  // memory-exhaustion vector it exists to prevent.
-  const MAX_TRACKED = 10_000;
-  let lastSweep = Date.now();
-
-  function sweep(now: number): void {
-    if (now - lastSweep < opts.rateLimit.windowMs) return;
-    lastSweep = now;
-    for (const [k, v] of buckets) {
-      if (now - v.windowStart > opts.rateLimit.windowMs) buckets.delete(k);
-    }
-    // Still oversized after expiry means an active flood: drop oldest first.
-    if (buckets.size > MAX_TRACKED) {
-      const ordered = [...buckets.entries()].sort((a, b) => a[1].windowStart - b[1].windowStart);
-      for (const [k] of ordered.slice(0, buckets.size - MAX_TRACKED)) buckets.delete(k);
-    }
-  }
-
-  function limited(ip: string, anonymous: boolean): boolean {
-    const now = Date.now();
-    sweep(now);
-    let b = buckets.get(ip);
-    if (!b || now - b.windowStart > opts.rateLimit.windowMs) {
-      b = { windowStart: now, paid: 0, anon: 0 };
-      // At capacity mid-window, fail CLOSED for unknown clients rather than
-      // growing without bound. Known clients keep their existing bucket.
-      if (buckets.size >= MAX_TRACKED) return true;
-      buckets.set(ip, b);
-    }
-    if (anonymous) {
-      b.anon++;
-      return b.anon > opts.rateLimit.anonymousMax;
-    }
-    b.paid++;
-    return b.paid > opts.rateLimit.max;
-  }
-
   function send(res: http.ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}): void {
     const payload = Buffer.isBuffer(body) ? body : Buffer.from(JSON.stringify(body));
     res.writeHead(status, {
@@ -138,17 +91,12 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
         verb === "tile" ? "tile_fetch" : verb === "proof" ? "pack_inclusion_proof" : verb === "manifest" ? "pack_manifest" : null;
       if (!operationId) return send(res, 404, { code: "args_invalid" });
 
+      // Decode only. Whether a cid is well-formed, present, or required is the
+      // kernel's schema question, answered identically for every transport.
       const args: Record<string, string> = {};
-      if (operationId !== "pack_manifest") {
-        if (parts.length < 3) return send(res, 400, { code: "args_invalid", detail: "cid required" });
-        args.cid = parts[2];
-        if (!/^b2-256:[0-9a-f]{64}$/.test(args.cid)) {
-          return send(res, 400, { code: "args_invalid", detail: "malformed cid" });
-        }
-      }
+      if (operationId !== "pack_manifest" && parts.length >= 3) args.cid = parts[2];
 
       const paymentId = header(req, "x-payment-id");
-      if (limited(ip, !paymentId)) return send(res, 429, { code: "rate_limited" });
 
       if (opts.requireTls && header(req, "x-forwarded-proto") !== "https") {
         return send(res, 400, { code: "tls_required" }); // fail closed

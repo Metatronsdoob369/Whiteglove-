@@ -179,16 +179,17 @@ export async function boot(opts: BootOptions): Promise<Booted> {
     );
   }
 
-  const kernel = new Kernel(ledger, mounts, facilitator);
+  // The declared ceiling, enforced once behind the kernel boundary — the same
+  // numbers the HTTP edge used to hold, now shared with every future spoke.
+  const kernel = new Kernel(ledger, mounts, facilitator, {
+    windowMs: policy.paid.rateLimit.windowSeconds * 1000,
+    max: policy.paid.rateLimit.maxRequests,
+    anonymousMax: policy.paid.rateLimit.anonymous402MaxRequests,
+  });
   const server = createPaidServer(kernel, {
     port: opts.port,
     requireTls: opts.requireTls ?? policy.paid.requireTls,
     refusals: refusals.codes,
-    rateLimit: {
-      windowMs: policy.paid.rateLimit.windowSeconds * 1000,
-      max: policy.paid.rateLimit.maxRequests,
-      anonymousMax: policy.paid.rateLimit.anonymous402MaxRequests,
-    },
   });
 
   return {

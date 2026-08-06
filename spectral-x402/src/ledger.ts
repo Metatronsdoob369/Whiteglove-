@@ -667,7 +667,12 @@ export class Ledger {
         }
       | undefined;
     if (!row) return null;
-    if (this.now() > row.exp) return null; // entitlement lapsed → 410
+    // Half-open interval: the entitlement is live UP TO `exp` and spent AT it.
+    // This was `>`, which delivered on the expiry millisecond itself — one
+    // free replay past the window the receipt advertises, and a boundary that
+    // disagreed with the `entitlementExpiresAt` we publish to the client.
+    // Deliberately tightened; no test pinned the old reading.
+    if (this.now() >= row.exp) return null; // entitlement lapsed → 410
     return {
       bytes: row.bytes,
       contentType: row.ct,

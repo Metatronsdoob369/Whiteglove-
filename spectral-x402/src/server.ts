@@ -21,7 +21,8 @@ import { readFileSync, existsSync, chmodSync } from "node:fs";
 import * as path from "node:path";
 import { Ledger } from "./ledger.js";
 import { Substrate, canonicalize, cidOf, type TrustEntry } from "./substrate.js";
-import { Kernel, type Mount, type MountOperation } from "./kernel.js";
+import { Kernel, BUILTIN_ADAPTERS, type Mount, type MountOperation } from "./kernel.js";
+import { buildAdapterRegistry, type Adapter } from "./adapter.js";
 import { StubFacilitator, HttpFacilitator, type FacilitatorClient } from "./facilitator.js";
 import { createPaidServer } from "./http.js";
 import { assertNoSpendingKeysInEnv, resolvePayTo, SecretRefusal } from "./secrets.js";
@@ -34,6 +35,17 @@ export interface KernelBootOptions {
   facilitator?: FacilitatorClient;
   /** Test-only: bypass env resolution for payTo. */
   payToOverride?: string;
+  /**
+   * The capabilities this kernel dispatches to, keyed by the manifest's
+   * `operationId`. Omit to get the three this kernel has always shipped
+   * (`BUILTIN_ADAPTERS`); passing your own list REPLACES that default rather
+   * than extending it, so an external caller that wants both composes
+   * `[...BUILTIN_ADAPTERS, myAdapter]` explicitly. Boot refuses in both
+   * directions — a manifest operation with nothing registered for it, or a
+   * registered adapter no mount declares — so this can never silently drift
+   * from what the commercial manifest publishes.
+   */
+  adapters?: readonly Adapter<any>[];
 }
 
 export interface BootOptions extends KernelBootOptions {
@@ -153,6 +165,39 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
     });
   }
 
+  // ── adapter registry: the manifest is still the only source of routes,
+  // prices, schemas, and discovery. This registry binds each manifest-
+  // declared operationId to executable code and nothing else, and boot
+  // refuses the two ways that binding can be wrong, fail-closed both ways.
+  const adapterRegistry = buildAdapterRegistry(opts.adapters ?? BUILTIN_ADAPTERS);
+  const declaredOperationIds = new Set<string>();
+  for (const m of mounts.values()) {
+    for (const [operationId, op] of m.operations) {
+      declaredOperationIds.add(operationId);
+      const adapter = adapterRegistry.get(operationId);
+      if (!adapter) {
+        throw new Error(
+          `BOOT_REFUSED: mount "${m.mountId}" declares operation "${operationId}" with no registered adapter handler`
+        );
+      }
+      // Runtime enforcement always uses the manifest's own maxResultBytes
+      // (unchanged, in kernel.ts); this is a config-contradiction check only —
+      // an adapter may not claim more capacity than the manifest allows for
+      // ANY mount that dispatches to it.
+      if (adapter.maxResultBytes > op.maxResultBytes) {
+        throw new Error(
+          `BOOT_REFUSED: adapter for operation "${operationId}" declares maxResultBytes=${adapter.maxResultBytes}, ` +
+            `exceeding mount "${m.mountId}"'s declared limit of ${op.maxResultBytes}`
+        );
+      }
+    }
+  }
+  for (const operationId of adapterRegistry.keys()) {
+    if (!declaredOperationIds.has(operationId)) {
+      throw new Error(`BOOT_REFUSED: adapter registered for operation "${operationId}" has no manifest entry`);
+    }
+  }
+
   // ── ledger + crash reconciliation
   const lockDigest = cidOf(lock);
   const ledger = new Ledger(opts.ledgerPath, { kernelVersion: KERNEL_VERSION, lockDigest });
@@ -209,11 +254,17 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
 
   // The declared ceiling, enforced once behind the kernel boundary — the same
   // numbers the HTTP edge used to hold, now shared with every future spoke.
-  const kernel = new Kernel(ledger, mounts, facilitator, {
-    windowMs: policy.paid.rateLimit.windowSeconds * 1000,
-    max: policy.paid.rateLimit.maxRequests,
-    anonymousMax: policy.paid.rateLimit.anonymous402MaxRequests,
-  });
+  const kernel = new Kernel(
+    ledger,
+    mounts,
+    facilitator,
+    {
+      windowMs: policy.paid.rateLimit.windowSeconds * 1000,
+      max: policy.paid.rateLimit.maxRequests,
+      anonymousMax: policy.paid.rateLimit.anonymous402MaxRequests,
+    },
+    adapterRegistry
+  );
   return {
     kernel,
     ledger,

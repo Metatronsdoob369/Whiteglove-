@@ -20,8 +20,14 @@
 export { KERNEL_VERSION } from "./version.js";
 
 // ── kernel: the transport-neutral core
-export { Kernel, AdapterMiss } from "./kernel.js";
+export { Kernel, BUILTIN_ADAPTERS } from "./kernel.js";
 export type { PaidInvocation, KernelOutcome, Transport, Mount, MountOperation } from "./kernel.js";
+
+// ── adapter registry: the public extension API. defineAdapter binds a
+// manifest-declared operationId to executable code; the manifest itself
+// stays the sole source of routes, prices, schemas, and discovery.
+export { defineAdapter, buildAdapterRegistry, assertAdapterConformance, AdapterMiss, AdapterConformanceError, AdapterRegistrationError } from "./adapter.js";
+export type { Adapter, AdapterContext, AdapterHandler, AdapterResult, AdapterDefinition, AdapterRegistry } from "./adapter.js";
 
 // ── shared admission limiter (one per kernel, keyed by clientKey)
 export { RateLimiter } from "./limiter.js";

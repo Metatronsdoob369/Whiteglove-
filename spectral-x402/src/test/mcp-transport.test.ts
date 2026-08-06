@@ -25,6 +25,7 @@ import * as path from "node:path";
 import * as http from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
   attachPaymentToMeta,
@@ -639,6 +640,56 @@ test("mcp: an abandoned session is evicted, freeing its slot, and its id then re
       );
     },
     { maxSessions: 1, now: () => clock }
+  );
+});
+
+test("mcp: a failed session construction gives its ceiling slot back", async () => {
+  await withTransport(
+    async ({ port }) => {
+      // The exact failure the accounting has to survive: `createSession`'s own
+      // `await server.connect(transport)` rejecting. Patched on the SDK rather
+      // than on anything we wrote, so the real allocation path runs and really
+      // fails. `connect` is INHERITED from Protocol — `hasOwnProperty` on
+      // Server.prototype is false — so the restore is a delete of the
+      // shadowing own property, not a re-assignment that would leave a copy.
+      const proto = Server.prototype as unknown as Record<string, unknown>;
+      proto.connect = async () => {
+        throw new Error("connect refused");
+      };
+
+      // The induced failure logs a stack, as it should. Captured rather than
+      // let loose: the suite's output stays clean, and the log becomes the
+      // assertion that the failure was REPORTED rather than swallowed.
+      const logged: string[] = [];
+      const realWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((chunk: unknown) => {
+        logged.push(String(chunk));
+        return true;
+      }) as typeof process.stderr.write;
+
+      let failed: { status: number; headers: http.IncomingHttpHeaders; body: string };
+      try {
+        failed = await rawPost(port, RAW_HEADERS, initializeBody());
+      } finally {
+        delete proto.connect;
+        process.stderr.write = realWrite;
+      }
+
+      assert.equal(failed.status, 500);
+      assert.equal(failed.headers["mcp-session-id"], undefined, "nothing was allocated that could be reached");
+      assert.ok(
+        logged.some((l) => l.includes("connect refused")),
+        "a construction failure must reach the operator's log"
+      );
+
+      // `maxSessions` is 1 and no session is live, so this succeeds only if
+      // the failed attempt released its slot. With the counter incremented
+      // outside the try/finally, the slot stayed spent for the life of the
+      // process and this was a 503 — capacity silently shrinking, with no
+      // signal, until enough failures wedged admission entirely.
+      await openRaw(port);
+    },
+    { maxSessions: 1 }
   );
 });
 

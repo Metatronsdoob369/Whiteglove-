@@ -509,9 +509,17 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
           }
           allocating++;
           created = true;
-          session = await createSession();
         }
         try {
+          // Inside the try, deliberately. `allocating` is incremented above,
+          // so EVERY exit from here — including `createSession` itself
+          // rejecting — has to reach the decrement. Constructing the session
+          // outside this block would let a failed allocation eat a slot of
+          // the ceiling permanently: the count would stay inflated for the
+          // life of the process, silently shrinking capacity with no
+          // operator-visible signal until enough failures wedged admission
+          // entirely, with zero live sessions.
+          if (!session) session = await createSession();
           armDeliveryAck(res, session, requestIdsIn(body));
           await session.transport.handleRequest(req, res, body);
           // An initialize the transport itself rejected leaves a Server and a
@@ -519,7 +527,9 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
           // rather than leak it.
           if (session.transport.sessionId === undefined) void session.transport.close();
         } finally {
-          // Only now: the map insert happens inside handleRequest.
+          // Not before now: the map insert happens inside handleRequest, so
+          // decrementing any earlier would reopen the concurrency gap the
+          // counter exists to close.
           if (created) allocating--;
         }
         return;

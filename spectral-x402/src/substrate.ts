@@ -149,6 +149,13 @@ export class Substrate {
   readonly merkleRootHex: string;
   readonly manifest: Record<string, unknown>;
   readonly manifestCid: string;
+  /**
+   * Declared media type of the payloads in this pack. The kernel is payload-
+   * agnostic — it addresses opaque bytes by content hash and never parses
+   * them — so this is the only thing that has to be stated, and it is stated
+   * once, in the sealed (therefore signed) manifest.
+   */
+  readonly payloadContentType: string;
 
   private constructor(a: {
     idx: Buffer;
@@ -158,6 +165,7 @@ export class Substrate {
     merkleRootHex: string;
     manifest: Record<string, unknown>;
     manifestCid: string;
+    payloadContentType: string;
   }) {
     this.idx = a.idx;
     this.dat = a.dat;
@@ -166,6 +174,7 @@ export class Substrate {
     this.merkleRootHex = a.merkleRootHex;
     this.manifest = a.manifest;
     this.manifestCid = a.manifestCid;
+    this.payloadContentType = a.payloadContentType;
   }
 
   /**
@@ -249,6 +258,8 @@ export class Substrate {
       merkleRootHex: declaredRoot,
       manifest,
       manifestCid,
+      // Default keeps every existing pack valid; new packs declare their own.
+      payloadContentType: (manifest.payload_content_type as string) ?? "application/json",
     });
   }
 

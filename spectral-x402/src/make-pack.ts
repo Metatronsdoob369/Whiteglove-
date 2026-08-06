@@ -211,6 +211,9 @@ const manifestBody = {
     source_locator_withheld: tiles.length * 3,
     constraint_names_generalized: tiles.length * 2,
   },
+  // The kernel serves these bytes verbatim; this is the only declaration
+  // of what they are, and it is inside the signed manifest.
+  payload_content_type: "application/json",
   status_list_ref: "roblox-luau-status",
   carrier_note: `Physics-deterministic Roblox state transitions. t+1 is engine-computed, not modeled.`,
 };

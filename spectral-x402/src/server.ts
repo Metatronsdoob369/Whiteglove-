@@ -12,7 +12,7 @@
  *   node dist/server.js                 # stub facilitator (local simulation)
  *   X402_FACILITATOR_URL=... node ...   # real facilitator
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, chmodSync } from "node:fs";
 import * as path from "node:path";
 import { Ledger } from "./ledger.js";
 import { Substrate, canonicalize, cidOf, type TrustEntry } from "./substrate.js";
@@ -136,11 +136,44 @@ export async function boot(opts: BootOptions): Promise<Booted> {
     });
   }
 
-  const facilitator =
-    opts.facilitator ??
-    (process.env.X402_FACILITATOR_URL
-      ? new HttpFacilitator(process.env.X402_FACILITATOR_URL, process.env.X402_FACILITATOR_API_KEY, "http")
-      : new StubFacilitator("valid"));
+  // The stub approves any well-formed payment without touching a chain. That
+  // is correct for tests and catastrophic for a listening service: anyone who
+  // can reach the port gets unlimited free data. Requiring an explicit opt-in
+  // means the dangerous configuration cannot be reached by omission.
+  let facilitator = opts.facilitator;
+  if (!facilitator) {
+    if (process.env.X402_FACILITATOR_URL) {
+      facilitator = new HttpFacilitator(
+        process.env.X402_FACILITATOR_URL,
+        process.env.X402_FACILITATOR_API_KEY,
+        "http"
+      );
+    } else if (process.env.X402_ALLOW_STUB_FACILITATOR === "1") {
+      console.warn(
+        "[SECURITY] stub facilitator active — every well-formed payment is " +
+          "accepted WITHOUT verification. Never expose this beyond loopback."
+      );
+      facilitator = new StubFacilitator("valid");
+    } else {
+      throw new Error(
+        "BOOT_REFUSED: no facilitator. Set X402_FACILITATOR_URL for real " +
+          "settlement, or X402_ALLOW_STUB_FACILITATOR=1 to knowingly accept " +
+          "unverified payments (loopback only)."
+      );
+    }
+  }
+
+  // Belt-and-suspenders: an unverified facilitator on a public interface is
+  // "free data for anyone who can route to us". Refuse the pairing outright
+  // rather than trusting two independent settings to both be right.
+  const bindAddr = process.env.X402_BIND ?? "127.0.0.1";
+  const isLoopback = bindAddr === "127.0.0.1" || bindAddr === "localhost" || bindAddr === "::1";
+  if (facilitator.id === "stub" && !isLoopback && !opts.facilitator) {
+    throw new Error(
+      `BOOT_REFUSED: stub facilitator bound to ${bindAddr}. Unverified payments ` +
+        `must never leave loopback.`
+    );
+  }
 
   const kernel = new Kernel(ledger, mounts, facilitator);
   const server = createPaidServer(kernel, {
@@ -176,6 +209,13 @@ function loadEnvFile(dir: string): string | null {
   for (const name of [".env.local", ".env"]) {
     const p = path.join(dir, name);
     if (!existsSync(p)) continue;
+    // This file will hold a facilitator API key. Tighten it on every load so
+    // a permissive default can never persist unnoticed.
+    try {
+      chmodSync(p, 0o600);
+    } catch {
+      /* non-fatal: read-only mount, or not owner */
+    }
     for (const raw of readFileSync(p, "utf8").split("\n")) {
       const line = raw.trim();
       if (!line || line.startsWith("#")) continue;
@@ -207,13 +247,21 @@ if (require.main === module) {
     packsDir: path.resolve(here, "packs"),
     ledgerPath: path.resolve(here, "ledger.db"),
     port,
-    requireTls: process.env.X402_REQUIRE_TLS === "1",
+    // Absent env → inherit runtime-policy (true). Only an explicit "0"
+    // disables the fail-closed TLS check, so forgetting to set it is safe.
+    requireTls: process.env.X402_REQUIRE_TLS !== "0",
     payToOverride: process.env.X402_PAYTO_ROBLOX_LUAU_PAYTO ? undefined : "0x0000000000000000000000000000000000000dev",
   })
     .then((b) => {
-      b.server.listen(port, "0.0.0.0", () => {
+      // Loopback unless told otherwise. A paid endpoint bound to every
+      // interface by default is an accident waiting for a network change.
+      const bind = process.env.X402_BIND ?? "127.0.0.1";
+      b.server.listen(port, bind, () => {
         const facilitatorKind = process.env.X402_FACILITATOR_URL ? "http" : "stub (local simulation)";
-        console.log(`[${new Date().toISOString()}] x402 mount kernel listening on :${port}`);
+        console.log(`[${new Date().toISOString()}] x402 mount kernel listening on ${bind}:${port}`);
+        if (bind !== "127.0.0.1" && bind !== "localhost") {
+          console.warn(`[SECURITY] bound to ${bind} — publicly reachable. Confirm TLS termination and the facilitator are real.`);
+        }
         console.log(`  facilitator ${facilitatorKind}`);
         for (const m of b.mounts.values()) {
           console.log(`  mount ${m.mountId} — ${m.substrate.tileCount} tiles, ${[...m.operations.keys()].join(", ")}`);

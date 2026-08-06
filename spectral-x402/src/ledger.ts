@@ -13,6 +13,7 @@
  * commit: settled money with no receipt is the one unrecoverable state.
  */
 import Database from "better-sqlite3";
+import { chmodSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
 export type CallState =
@@ -250,6 +251,18 @@ export class Ledger {
 
   constructor(pathOrMemory: string, opts: { kernelVersion: string; lockDigest: string; now?: () => number }) {
     this.db = new Database(pathOrMemory);
+    // The ledger holds protected result bytes, settlement receipts and payer
+    // addresses. Default 0644 makes all of that world-readable on a shared
+    // machine; 0600 is the only defensible mode for it.
+    if (pathOrMemory !== ":memory:") {
+      for (const suffix of ["", "-wal", "-shm"]) {
+        try {
+          chmodSync(pathOrMemory + suffix, 0o600);
+        } catch {
+          /* -wal/-shm may not exist yet; the main file is what matters */
+        }
+      }
+    }
     this.now = opts.now ?? (() => Date.now());
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = FULL");

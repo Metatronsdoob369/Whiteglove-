@@ -26,11 +26,34 @@ interface Bucket {
 export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server {
   const buckets = new Map<string, Bucket>();
 
+  // Hard ceiling on tracked clients. Without eviction every distinct source
+  // address is a permanent allocation, so the rate limiter becomes the
+  // memory-exhaustion vector it exists to prevent.
+  const MAX_TRACKED = 10_000;
+  let lastSweep = Date.now();
+
+  function sweep(now: number): void {
+    if (now - lastSweep < opts.rateLimit.windowMs) return;
+    lastSweep = now;
+    for (const [k, v] of buckets) {
+      if (now - v.windowStart > opts.rateLimit.windowMs) buckets.delete(k);
+    }
+    // Still oversized after expiry means an active flood: drop oldest first.
+    if (buckets.size > MAX_TRACKED) {
+      const ordered = [...buckets.entries()].sort((a, b) => a[1].windowStart - b[1].windowStart);
+      for (const [k] of ordered.slice(0, buckets.size - MAX_TRACKED)) buckets.delete(k);
+    }
+  }
+
   function limited(ip: string, anonymous: boolean): boolean {
     const now = Date.now();
+    sweep(now);
     let b = buckets.get(ip);
     if (!b || now - b.windowStart > opts.rateLimit.windowMs) {
       b = { windowStart: now, paid: 0, anon: 0 };
+      // At capacity mid-window, fail CLOSED for unknown clients rather than
+      // growing without bound. Known clients keep their existing bucket.
+      if (buckets.size >= MAX_TRACKED) return true;
       buckets.set(ip, b);
     }
     if (anonymous) {

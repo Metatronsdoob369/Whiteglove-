@@ -238,6 +238,42 @@ test("registry: assertAdapterConformance does NOT run the stability check when d
   });
 });
 
+test("registry: assertAdapterConformance invokes the handler with the RAW fixture, not a field-level transform's output", async () => {
+  // assertStrictObjectArgSchema only inspects the OUTER schema (instanceof
+  // ZodObject + unknownKeys === "strict"); a FIELD-level `.transform()` still
+  // type-checks and passes that gate, since the object itself isn't a
+  // ZodEffects. Live dispatch never re-parses (runAdapter hands the kernel's
+  // raw inv.args straight to the handler), so conformance must call the
+  // handler with the SAME raw fixture it was given — never the schema's
+  // transformed parse output — or it would measure a call dispatch never
+  // actually makes.
+  await withTmpDir(async (dir) => {
+    const core = await bootWith(dir);
+    try {
+      const substrate = core.mounts.get(MOUNT)!.substrate;
+      let observedTag: string | undefined;
+      const lowercasingField = defineAdapter({
+        operationId: "lowercasing_field_test",
+        argSchema: z.object({ tag: z.string().transform((s) => s.toLowerCase()) }).strict(),
+        maxResultBytes: 64,
+        declaredReplaySafe: false,
+        handler: (args) => {
+          observedTag = args.tag;
+          return { bytes: Buffer.alloc(0), contentType: "text/plain" };
+        },
+      });
+      await assertAdapterConformance(lowercasingField, { tag: "SHOUT" }, { substrate });
+      assert.equal(
+        observedTag,
+        "SHOUT",
+        "the handler must see the caller's raw fixture value, not the schema's lowercased parse output"
+      );
+    } finally {
+      core.close();
+    }
+  });
+});
+
 // ─── (c) argSchema must be a strict Zod object — Finding 3 ──────────────────
 //
 // This is what makes the round-trip / transform-divergence concern moot: a

@@ -234,7 +234,19 @@ export async function assertAdapterConformance(
     );
   }
 
-  const first = await adapter.handler(parsed.data, ctx);
+  // The handler is called with `fixtureArgs`, NOT `parsed.data` — dispatch
+  // never re-parses (see `runAdapter` in kernel.ts: the kernel validates args
+  // against this same schema once, at admission, then hands the RAW args
+  // straight to the handler). `assertStrictObjectArgSchema` guarantees the
+  // outer schema is a non-transforming strict object, but a FIELD-level
+  // wrapper (`.transform()`, `.default()`, `.catch()`, `z.preprocess`) can
+  // still make `parsed.data` differ from what the caller actually sent, even
+  // though the object itself passes that check. Calling the handler with
+  // `parsed.data` here would measure a call live dispatch never makes;
+  // `fixtureArgs` — already proven above to parse successfully — is what a
+  // handler actually receives in production.
+  const args = fixtureArgs as AdapterArgs;
+  const first = await adapter.handler(args, ctx);
   if (first.bytes.length > adapter.maxResultBytes) {
     throw new AdapterConformanceError(
       `adapter "${adapter.operationId}": produced ${first.bytes.length} bytes, exceeding its declared maxResultBytes ${adapter.maxResultBytes}`
@@ -242,7 +254,7 @@ export async function assertAdapterConformance(
   }
 
   if (adapter.declaredReplaySafe) {
-    const second = await adapter.handler(parsed.data, ctx);
+    const second = await adapter.handler(args, ctx);
     if (!first.bytes.equals(second.bytes) || first.contentType !== second.contentType) {
       throw new AdapterConformanceError(
         `adapter "${adapter.operationId}": declares replay-safe but two invocations with identical fixture args produced different output`

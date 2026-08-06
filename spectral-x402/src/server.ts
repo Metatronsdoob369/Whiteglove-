@@ -165,9 +165,42 @@ export async function boot(opts: BootOptions): Promise<Booted> {
   };
 }
 
+/**
+ * Load .env.local into process.env without overwriting anything already set.
+ *
+ * This is what lets a launchd plist carry zero configuration: the service
+ * definition stays in git, the values stay in a gitignored file. Shell-set
+ * vars still win, so a one-off run can override without editing the file.
+ */
+function loadEnvFile(dir: string): string | null {
+  for (const name of [".env.local", ".env"]) {
+    const p = path.join(dir, name);
+    if (!existsSync(p)) continue;
+    for (const raw of readFileSync(p, "utf8").split("\n")) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eq = line.indexOf("=");
+      if (eq < 1) continue;
+      const key = line.slice(0, eq).trim();
+      let val = line.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      if (val !== "" && process.env[key] === undefined) process.env[key] = val;
+    }
+    return name;
+  }
+  return null;
+}
+
 // ── CLI boot ─────────────────────────────────────────────────────────────────
 if (require.main === module) {
   const here = path.resolve(__dirname, "..");
+  const envFile = loadEnvFile(here);
+  if (envFile) console.log(`[${new Date().toISOString()}] loaded ${envFile}`);
   const port = Number(process.env.PORT ?? 8787);
   boot({
     manifestsDir: path.resolve(here, "../manifests"),
@@ -180,16 +213,41 @@ if (require.main === module) {
     .then((b) => {
       b.server.listen(port, "0.0.0.0", () => {
         const facilitatorKind = process.env.X402_FACILITATOR_URL ? "http" : "stub (local simulation)";
-        console.log(`x402 mount kernel listening on :${port}`);
+        console.log(`[${new Date().toISOString()}] x402 mount kernel listening on :${port}`);
         console.log(`  facilitator ${facilitatorKind}`);
         for (const m of b.mounts.values()) {
           console.log(`  mount ${m.mountId} — ${m.substrate.tileCount} tiles, ${[...m.operations.keys()].join(", ")}`);
         }
       });
+
+      // Graceful shutdown. A supervisor sends SIGTERM; if we exit dirty the
+      // ledger can be left with a lease held by a boot that is gone, which
+      // costs a needless quarantine on the next start. Close the listener,
+      // let in-flight calls finish, then close the ledger.
+      let closing = false;
+      const shutdown = (sig: string) => {
+        if (closing) return;
+        closing = true;
+        console.log(`[${new Date().toISOString()}] ${sig} — draining`);
+        b.server.close(() => {
+          b.ledger.close();
+          console.log(`[${new Date().toISOString()}] ledger closed, exiting 0`);
+          process.exit(0);
+        });
+        // Never hang a supervisor: hard-exit if drain stalls.
+        setTimeout(() => {
+          console.error(`[${new Date().toISOString()}] drain timed out — forcing exit`);
+          process.exit(0);
+        }, 10_000).unref();
+      };
+      process.on("SIGTERM", () => shutdown("SIGTERM"));
+      process.on("SIGINT", () => shutdown("SIGINT"));
     })
     .catch((e) => {
-      if (e instanceof SecretRefusal) console.error(`\n${e.message}\n`);
-      else console.error(`\n${(e as Error).message}\n`);
+      // Fail closed and say why. Under a supervisor this is a restart loop, so
+      // the reason has to be in the log or the loop is undiagnosable.
+      const msg = e instanceof SecretRefusal ? e.message : (e as Error).message;
+      console.error(`[${new Date().toISOString()}] BOOT REFUSED: ${msg}`);
       process.exit(1);
     });
 }

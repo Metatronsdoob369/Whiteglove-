@@ -2,7 +2,7 @@
   "name": "spectral-x402",
   "version": "0.1.0",
   "private": true,
-  "description": "x402 mount kernel — seller-side payment kernel for sealed terrain packs. Durable ledger, adapter admission, content-addressed retrieval.",
+  "description": "x402 mount kernel \u2014 seller-side payment kernel for sealed terrain packs. Durable ledger, adapter admission, content-addressed retrieval.",
   "type": "commonjs",
   "main": "dist/index.js",
   "engines": {
@@ -11,7 +11,13 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsc && node --test 'dist/test/**/*.test.js'"
+    "test": "tsc && node --test 'dist/test/**/*.test.js'",
+    "service:install": "bash service/ctl.sh install",
+    "service:uninstall": "bash service/ctl.sh uninstall",
+    "service:restart": "bash service/ctl.sh restart",
+    "service:status": "bash service/ctl.sh status",
+    "service:logs": "bash service/ctl.sh logs",
+    "service:health": "bash service/ctl.sh health"
   },
   "dependencies": {
     "@x402/core": "2.15.0",

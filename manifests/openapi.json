@@ -17,7 +17,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
             },
             "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
           },
@@ -67,7 +67,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
             },
             "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
           },
@@ -117,7 +117,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
             },
             "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
           }
@@ -158,7 +158,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
             },
             "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
           },
@@ -208,7 +208,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
             },
             "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
           },
@@ -258,7 +258,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
             },
             "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
           }

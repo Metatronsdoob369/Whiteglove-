@@ -19,7 +19,9 @@ const PACKS = path.resolve(__dirname, "../../packs");
 const PAY_TO = "0x0000000000000000000000000000000000000dev";
 
 let seq = 0;
-const paymentId = () => `pay-${Date.now()}-${seq++}`;
+// Must clear PAYMENT_ID_MIN_LENGTH (16). Padded so the value cannot dip
+// under the floor regardless of clock or counter width.
+const paymentId = () => `pay-${Date.now()}-${String(seq++).padStart(4, '0')}`;
 
 function paymentHeader(nonce: string, over: Record<string, unknown> = {}): string {
   return Buffer.from(

@@ -23,6 +23,14 @@ import { MANIFEST } from "./index.js";
 import { auditSealPolicy, type DomainPipeline } from "./manifest.schema.js";
 import { canonicalize, cidOfBytes } from "./canon.js";
 
+/**
+ * paymentId contract published to buyers. Mirrors
+ * spectral-x402/src/payment-id.ts (source: @x402/extensions@2.21.0,
+ * PAYMENT_ID_MIN_LENGTH=16). The endpoint enforces the same rule, so a
+ * client reading this contract and a live caller are held to one standard.
+ */
+const PAYMENT_ID_PATTERN = "^[A-Za-z0-9_-]{16,128}$";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.resolve(path.join(here, "../../manifests"));
 const CHECK = process.argv.includes("--check");
@@ -168,7 +176,7 @@ function openapiArtifact() {
               name: "X-Payment-Id",
               in: "header",
               required: true,
-              schema: { type: "string", pattern: "^[A-Za-z0-9_-]{8,128}$" },
+              schema: { type: "string", pattern: PAYMENT_ID_PATTERN },
               description:
                 "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409.",
             },
@@ -213,7 +221,7 @@ function mcpToolsArtifact() {
           additionalProperties: false,
           required: op.operationId === "pack_manifest" ? ["paymentId"] : ["paymentId", "cid"],
           properties: {
-            paymentId: { type: "string", pattern: "^[A-Za-z0-9_-]{8,128}$" },
+            paymentId: { type: "string", pattern: PAYMENT_ID_PATTERN },
             ...(op.operationId === "pack_manifest"
               ? {}
               : { cid: { type: "string", pattern: "^b2-256:[0-9a-f]{64}$" } }),

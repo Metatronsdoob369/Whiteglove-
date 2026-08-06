@@ -82,7 +82,7 @@ test("serves raw binary payloads verbatim with the declared media type", async (
       ).toString("base64");
 
       const res = await fetch(`${url}/heatmap-raw/tile/${cid}`, {
-        headers: { "x-payment-id": "pay-raw-1", "x-payment": payment },
+        headers: { "x-payment-id": "pay-raw-000000001", "x-payment": payment },
       });
       assert.equal(res.status, 200);
       assert.equal(res.headers.get("content-type"), "application/octet-stream");
@@ -103,7 +103,7 @@ test("serves raw binary payloads verbatim with the declared media type", async (
       assert.ok(Number.isFinite(first) && Math.abs(first) <= 1, `first component ${first} is a real f32`);
 
       // Replay works identically for binary.
-      const again = await fetch(`${url}/heatmap-raw/tile/${cid}`, { headers: { "x-payment-id": "pay-raw-1" } });
+      const again = await fetch(`${url}/heatmap-raw/tile/${cid}`, { headers: { "x-payment-id": "pay-raw-000000001" } });
       assert.equal(again.status, 200);
       assert.equal(again.headers.get("x-replayed"), "true");
       assert.deepEqual(Buffer.from(await again.arrayBuffer()), bytes);

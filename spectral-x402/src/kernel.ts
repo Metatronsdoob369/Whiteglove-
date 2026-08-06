@@ -159,11 +159,26 @@ const packManifestAdapter = defineAdapter({
 });
 
 /** The default registration `bootKernelOnly()` / `boot()` use when `adapters` is omitted. */
-export const BUILTIN_ADAPTERS: Adapter<any>[] = [tileFetchAdapter, packInclusionProofAdapter, packManifestAdapter];
+export const BUILTIN_ADAPTERS: Adapter[] = [tileFetchAdapter, packInclusionProofAdapter, packManifestAdapter];
 
-/** Renders a ZodError as a single-line, non-echoing refusal detail. */
+/**
+ * Renders a ZodError as a single-line refusal detail. Values are never
+ * echoed back: a refusal says what was wrong with the shape, not what the
+ * caller sent. Zod's own `unrecognized_keys` issue is the one exception that
+ * would otherwise leak caller-chosen text — its default message embeds the
+ * caller's own key strings verbatim (e.g. "Unrecognized key(s) in object:
+ * 'evil_KEY_from_caller'") — so that one code is remapped to a fixed
+ * string. Every other ZodIssueCode's default message describes the DECLARED
+ * shape (a field name the adapter's author chose, or a generic like
+ * "Required"), never a value or key the caller supplied.
+ */
 function argFaultDetail(error: z.ZodError): string {
-  return error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ");
+  return error.issues
+    .map((i) => {
+      if (i.code === z.ZodIssueCode.unrecognized_keys) return "unexpected argument";
+      return i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message;
+    })
+    .join("; ");
 }
 
 function digestHex(s: string): string {
@@ -286,6 +301,20 @@ export class Kernel {
     const parsedArgs = adapter.argSchema.safeParse(inv.args);
     if (!parsedArgs.success) {
       return { kind: "refused", code: "args_invalid", detail: argFaultDetail(parsedArgs.error) };
+    }
+    // Belt-and-suspenders on top of the Record<string,string> type constraint
+    // on Adapter itself: a schema field typed `z.any()` / `z.unknown()`
+    // satisfies that constraint structurally without enforcing it at
+    // runtime, so a value that is an object or `undefined` (e.g. an optional
+    // field passed explicitly as `undefined`) can still reach here. Left
+    // unchecked, argDigest's unconditional `.length` access throws on
+    // `undefined` mid-`handle()`, pre-payment, and an object value collapses
+    // to `[object Object]` in the digest — two materially different
+    // requests producing ONE fingerprint. Refuse before either can happen.
+    for (const v of Object.values(parsedArgs.data)) {
+      if (typeof v !== "string") {
+        return { kind: "refused", code: "args_invalid", detail: "argument values must be strings" };
+      }
     }
 
     // Daily ceiling — the operator's pre-chosen worst case, enforced before

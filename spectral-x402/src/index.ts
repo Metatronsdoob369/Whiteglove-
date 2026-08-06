@@ -26,8 +26,16 @@ export type { PaidInvocation, KernelOutcome, Transport, Mount, MountOperation } 
 // ── adapter registry: the public extension API. defineAdapter binds a
 // manifest-declared operationId to executable code; the manifest itself
 // stays the sole source of routes, prices, schemas, and discovery.
-export { defineAdapter, buildAdapterRegistry, assertAdapterConformance, AdapterMiss, AdapterConformanceError, AdapterRegistrationError } from "./adapter.js";
-export type { Adapter, AdapterContext, AdapterHandler, AdapterResult, AdapterDefinition, AdapterRegistry } from "./adapter.js";
+export {
+  defineAdapter,
+  buildAdapterRegistry,
+  assertAdapterConformance,
+  AdapterMiss,
+  AdapterConformanceError,
+  AdapterRegistrationError,
+  AdapterSchemaError,
+} from "./adapter.js";
+export type { Adapter, AdapterArgs, AdapterContext, AdapterHandler, AdapterResult, AdapterDefinition, AdapterRegistry } from "./adapter.js";
 
 // ── shared admission limiter (one per kernel, keyed by clientKey)
 export { RateLimiter } from "./limiter.js";

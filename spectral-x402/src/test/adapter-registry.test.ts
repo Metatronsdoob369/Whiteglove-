@@ -22,8 +22,10 @@ import { cidOf } from "../substrate.js";
 import { StubFacilitator, type PaymentPayload } from "../facilitator.js";
 import {
   defineAdapter,
+  buildAdapterRegistry,
   assertAdapterConformance,
   AdapterConformanceError,
+  AdapterSchemaError,
   type Adapter,
   type AdapterContext,
 } from "../index.js";
@@ -38,7 +40,7 @@ function withTmpDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   return fn(dir).finally(() => rmSync(dir, { recursive: true, force: true }));
 }
 
-async function bootWith(dir: string, adapters?: readonly Adapter<any>[]): Promise<BootedKernel> {
+async function bootWith(dir: string, adapters?: readonly Adapter[]): Promise<BootedKernel> {
   return bootKernelOnly({
     manifestsDir: MANIFESTS,
     packsDir: PACKS,
@@ -236,40 +238,88 @@ test("registry: assertAdapterConformance does NOT run the stability check when d
   });
 });
 
-test("registry: assertAdapterConformance rejects an argSchema that is not stable under round-trip parsing", async () => {
-  await withTmpDir(async (dir) => {
-    const core = await bootWith(dir);
-    try {
-      const substrate = core.mounts.get(MOUNT)!.substrate;
-      // A schema whose transform mutates on every parse — parsing its own
-      // output again does not reproduce that output. Fixture-agnostic: this
-      // fails before the handler is even reachable via a normal call.
-      const unstableSchema = z.object({ n: z.number() }).transform((v) => ({ n: v.n + 1 }));
-      const unstable = defineAdapter({
-        operationId: "unstable_schema_test",
-        argSchema: unstableSchema,
+// ─── (c) argSchema must be a strict Zod object — Finding 3 ──────────────────
+//
+// This is what makes the round-trip / transform-divergence concern moot: a
+// ZodEffects (`.transform()`, `.refine()`, `.pipe()`) is never `instanceof
+// ZodObject`, so it cannot become a registered adapter in the first place —
+// not through `defineAdapter`, and not by hand-building an `Adapter` object
+// and handing it to `buildAdapterRegistry` either.
+
+test("registry: defineAdapter refuses a non-strict (default strip-mode) object schema", () => {
+  // Zod's strip/strict distinction is a runtime-behavior flag, not reflected
+  // in the static Output type — this schema type-checks fine against
+  // Adapter<AdapterArgs> and needs no suppression; only the runtime
+  // instanceof/_def check catches it.
+  assert.throws(
+    () =>
+      defineAdapter({
+        operationId: "not_strict_test",
+        argSchema: z.object({ cid: z.string() }), // no .strict()
         maxResultBytes: 64,
-        declaredReplaySafe: false,
-        handler: () => ({ bytes: Buffer.from("x"), contentType: "text/plain" }),
-      });
-      await assert.rejects(
-        () => assertAdapterConformance(unstable, { n: 1 }, { substrate }),
-        (e: Error) => {
-          assert.ok(e instanceof AdapterConformanceError);
-          assert.match(e.message, /round-trip/);
-          return true;
-        }
-      );
-    } finally {
-      core.close();
-    }
-  });
+        declaredReplaySafe: true,
+        handler: () => ({ bytes: Buffer.alloc(0), contentType: "text/plain" }),
+      }),
+    AdapterSchemaError
+  );
 });
 
-// ─── (c) a new capability, registered through the public API, end to end ────
+test("registry: defineAdapter refuses a .passthrough() object schema", () => {
+  assert.throws(
+    () =>
+      defineAdapter({
+        operationId: "passthrough_test",
+        // @ts-expect-error — intentionally the wrong shape for this test
+        argSchema: z.object({ cid: z.string() }).passthrough(),
+        maxResultBytes: 64,
+        declaredReplaySafe: true,
+        handler: () => ({ bytes: Buffer.alloc(0), contentType: "text/plain" }),
+      }),
+    AdapterSchemaError
+  );
+});
 
-/** Clones manifests and appends a fourth route to the roblox-luau mount. */
-function manifestsWithEchoOp(dir: string): string {
+test("registry: defineAdapter refuses a .transform()-wrapped schema, even when its output shape still fits Record<string,string>", () => {
+  // Output-shape-preserving on purpose: this schema WOULD satisfy the
+  // Adapter<AdapterArgs> type constraint if defineAdapter only checked types.
+  // It must still be refused, because a ZodEffects is never `instanceof
+  // ZodObject` — the runtime check is what actually closes this off, not the
+  // compiler.
+  const transformed = z
+    .object({ cid: z.string() })
+    .strict()
+    .transform((v) => ({ cid: v.cid }));
+  assert.throws(
+    () =>
+      defineAdapter({
+        operationId: "transform_test",
+        argSchema: transformed,
+        maxResultBytes: 64,
+        declaredReplaySafe: true,
+        handler: () => ({ bytes: Buffer.alloc(0), contentType: "text/plain" }),
+      }),
+    AdapterSchemaError
+  );
+});
+
+test("registry: buildAdapterRegistry ALSO refuses a non-strict schema on an Adapter built by hand, bypassing defineAdapter", () => {
+  // Adapter is a plain structural interface — nothing stops code from
+  // constructing one without going through defineAdapter's guard. This is
+  // the second enforcement point (boot-time), closing that gap.
+  const handBuilt: Adapter = {
+    operationId: "hand_built_test",
+    argSchema: z.object({}), // no .strict()
+    maxResultBytes: 64,
+    declaredReplaySafe: true,
+    handler: () => ({ bytes: Buffer.alloc(0), contentType: "text/plain" }),
+  };
+  assert.throws(() => buildAdapterRegistry([handBuilt]), AdapterSchemaError);
+});
+
+// ─── (d) argSchema output must actually be strings — Finding 1 ──────────────
+
+/** Clones manifests and appends a route for `operationId` to the roblox-luau mount. */
+function manifestsWithExtraRoute(dir: string, operationId: string): string {
   const md = path.join(dir, "manifests");
   mkdirSync(md, { recursive: true });
   cpSync(MANIFESTS, md, { recursive: true });
@@ -277,9 +327,9 @@ function manifestsWithEchoOp(dir: string): string {
   const routes = JSON.parse(readFileSync(path.join(md, "x402-routes.json"), "utf8"));
   const mount = routes.mounts.find((m: { mountId: string }) => m.mountId === MOUNT);
   mount.routes.push({
-    operationId: "echo_ping",
+    operationId,
     method: "GET",
-    pathTemplate: `/${MOUNT}/echo`,
+    pathTemplate: `/${MOUNT}/${operationId}`,
     resultKind: "manifest-json",
     deadlineMs: 5,
     maxResultBytes: 64,
@@ -296,9 +346,117 @@ function manifestsWithEchoOp(dir: string): string {
   return md;
 }
 
+test("registry: a z.any()-typed field receiving an object value is refused, not silently digested as [object Object]", async () => {
+  await withTmpDir(async (dir) => {
+    const md = manifestsWithExtraRoute(dir, "risky_any_op");
+    // z.any() satisfies Adapter<AdapterArgs>'s type constraint structurally
+    // (any is compatible with everything) without enforcing it at runtime —
+    // exactly the gap the type constraint alone cannot close.
+    const risky = defineAdapter({
+      operationId: "risky_any_op",
+      argSchema: z.object({ payload: z.any() }).strict(),
+      maxResultBytes: 64,
+      declaredReplaySafe: true,
+      handler: () => ({ bytes: Buffer.from("ok"), contentType: "text/plain" }),
+    });
+    const core = await bootKernelOnly({
+      manifestsDir: md,
+      packsDir: PACKS,
+      ledgerPath: path.join(dir, "ledger.db"),
+      facilitator: new StubFacilitator("valid"),
+      payToOverride: PAY_TO,
+      adapters: [...BUILTIN_ADAPTERS, risky],
+    });
+    try {
+      const out = await core.kernel.handle({
+        mountId: MOUNT,
+        operationId: "risky_any_op",
+        args: { payload: { nested: "object" } } as unknown as Record<string, string>,
+        transport: "http",
+        clientKey: "risky-test-client",
+        resource: `/${MOUNT}/risky_any_op`,
+      });
+      assert.equal(out.kind, "refused");
+      if (out.kind !== "refused") return;
+      assert.equal(out.code, "args_invalid");
+    } finally {
+      core.close();
+    }
+  });
+});
+
+test("registry: an optional field explicitly set to undefined is refused, not a TypeError inside requestFingerprint", async () => {
+  await withTmpDir(async (dir) => {
+    const md = manifestsWithExtraRoute(dir, "cursor_op");
+    const cursorAdapter = defineAdapter({
+      operationId: "cursor_op",
+      argSchema: z.object({ cursor: z.string().optional() }).strict(),
+      maxResultBytes: 64,
+      declaredReplaySafe: true,
+      handler: () => ({ bytes: Buffer.from("ok"), contentType: "text/plain" }),
+    });
+    const core = await bootKernelOnly({
+      manifestsDir: md,
+      packsDir: PACKS,
+      ledgerPath: path.join(dir, "ledger.db"),
+      facilitator: new StubFacilitator("valid"),
+      payToOverride: PAY_TO,
+      adapters: [...BUILTIN_ADAPTERS, cursorAdapter],
+    });
+    try {
+      // A well-typed caller never sends this; a malformed one (or a future
+      // transport) can. This must refuse cleanly, not throw mid-handle().
+      const out = await core.kernel.handle({
+        mountId: MOUNT,
+        operationId: "cursor_op",
+        args: { cursor: undefined } as unknown as Record<string, string>,
+        transport: "http",
+        clientKey: "cursor-test-client",
+        resource: `/${MOUNT}/cursor_op`,
+      });
+      assert.equal(out.kind, "refused");
+      if (out.kind !== "refused") return;
+      assert.equal(out.code, "args_invalid");
+    } finally {
+      core.close();
+    }
+  });
+});
+
+// ─── (e) refusal detail never echoes a caller-chosen key name — Finding 2 ───
+
+test("registry: an unrecognized argument key never echoes the caller's key name in the refusal detail", async () => {
+  await withTmpDir(async (dir) => {
+    const core = await bootWith(dir);
+    try {
+      const cid = (core.mounts.get(MOUNT)!.substrate.getManifest().tiles as string[])[0];
+      const out = await core.kernel.handle({
+        mountId: MOUNT,
+        operationId: "tile_fetch",
+        args: { cid, evil_KEY_from_caller: "<script>" } as Record<string, string>,
+        transport: "http",
+        clientKey: "detail-test-client",
+        resource: `/${MOUNT}/tile`,
+      });
+      assert.equal(out.kind, "refused");
+      if (out.kind !== "refused") return;
+      assert.equal(out.code, "args_invalid");
+      assert.equal(out.detail, "unexpected argument");
+      assert.ok(
+        !out.detail?.includes("evil_KEY_from_caller") && !out.detail?.includes("<script>"),
+        `refusal detail must never echo a caller-chosen key name, got: ${out.detail}`
+      );
+    } finally {
+      core.close();
+    }
+  });
+});
+
+// ─── (f) a new capability, registered through the public API, end to end ───
+
 test("registry: a new capability registered via defineAdapter (from the public index) is boot-admitted and delivers", async () => {
   await withTmpDir(async (dir) => {
-    const md = manifestsWithEchoOp(dir);
+    const md = manifestsWithExtraRoute(dir, "echo_ping");
     const echoAdapter = defineAdapter({
       operationId: "echo_ping",
       argSchema: z.object({}).strict(),

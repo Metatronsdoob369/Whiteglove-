@@ -45,7 +45,7 @@ export interface KernelBootOptions {
    * registered adapter no mount declares — so this can never silently drift
    * from what the commercial manifest publishes.
    */
-  adapters?: readonly Adapter<any>[];
+  adapters?: readonly Adapter[];
 }
 
 export interface BootOptions extends KernelBootOptions {

@@ -103,6 +103,14 @@ function buildTile(i: number, prevCid: string | null, centroidCid: string): Reco
   };
 }
 
+// A signer id names exactly one key. If a previous run rotated the key it
+// recorded the new id in .signer-id — honor it, or we sign with key B while
+// claiming to be key A and every verifier refuses the seal.
+function resolveSignerId(outDir: string, fallback: string): string {
+  const p = path.join(outDir, ".signer-id");
+  return existsSync(p) ? readFileSync(p, "utf8").trim() : fallback;
+}
+
 const outDir = process.argv[2] ?? "./packs";
 const edition = process.argv[3] ?? "roblox-luau-2026-08";
 const tileCount = Number(process.argv[4] ?? 64);
@@ -112,7 +120,7 @@ const base = path.join(outDir, edition);
 const trustPath = path.join(outDir, "terrain-keys.json");
 
 // Signing key — content provenance only. Not a wallet.
-let signerId = "nodeout-terrain-2026a";
+const signerId = resolveSignerId(outDir, "nodeout-terrain-2026a");
 let privateKeyPem: string;
 if (existsSync(trustPath) && existsSync(path.join(outDir, ".signing-key.pem"))) {
   privateKeyPem = readFileSync(path.join(outDir, ".signing-key.pem"), "utf8");

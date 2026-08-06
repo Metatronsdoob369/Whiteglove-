@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
+  "packs": [
+    {
+      "edition": "roblox-luau-2026-08",
+      "domain": "roblox-luau",
+      "unit": "tile",
+      "geometryProfile": "transition-only",
+      "dims": 3072,
+      "temporalAxis": true,
+      "description": "Roblox game state as temporal geometry. Frame N causally shaped by N-1. Agent dropped into terrain predicts state without training.",
+      "gate": "threshold",
+      "calibrated": false,
+      "licenseGate": {
+        "denyLicenses": [
+          "NOASSERTION",
+          "LicenseRef-Proprietary"
+        ]
+      },
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      },
+      "statusListRef": "roblox-luau-status"
+    }
+  ]
+}

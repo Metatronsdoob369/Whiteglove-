@@ -1,0 +1,151 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Spectral Terrain — paid retrieval",
+    "version": "1.0.0",
+    "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/."
+  },
+  "paths": {
+    "/roblox-luau/tile/{cid}": {
+      "get": {
+        "operationId": "tile_fetch",
+        "summary": "tile_fetch (roblox-luau-2026-08)",
+        "parameters": [
+          {
+            "name": "X-Payment-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+            },
+            "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
+          },
+          {
+            "name": "cid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^b2-256:[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "sealed bytes + settlement receipt"
+          },
+          "202": {
+            "description": "matching request already executing"
+          },
+          "402": {
+            "description": "x402 v2 payment required / payment fault"
+          },
+          "404": {
+            "description": "unknown cid (content-address silence)"
+          },
+          "409": {
+            "description": "paymentId bound to a different request fingerprint"
+          },
+          "410": {
+            "description": "retry entitlement expired"
+          },
+          "503": {
+            "description": "settlement pending review, or capability unavailable"
+          }
+        }
+      }
+    },
+    "/roblox-luau/proof/{cid}": {
+      "get": {
+        "operationId": "pack_inclusion_proof",
+        "summary": "pack_inclusion_proof (roblox-luau-2026-08)",
+        "parameters": [
+          {
+            "name": "X-Payment-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+            },
+            "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
+          },
+          {
+            "name": "cid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^b2-256:[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "sealed bytes + settlement receipt"
+          },
+          "202": {
+            "description": "matching request already executing"
+          },
+          "402": {
+            "description": "x402 v2 payment required / payment fault"
+          },
+          "404": {
+            "description": "unknown cid (content-address silence)"
+          },
+          "409": {
+            "description": "paymentId bound to a different request fingerprint"
+          },
+          "410": {
+            "description": "retry entitlement expired"
+          },
+          "503": {
+            "description": "settlement pending review, or capability unavailable"
+          }
+        }
+      }
+    },
+    "/roblox-luau/manifest": {
+      "get": {
+        "operationId": "pack_manifest",
+        "summary": "pack_manifest (roblox-luau-2026-08)",
+        "parameters": [
+          {
+            "name": "X-Payment-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+            },
+            "description": "Client identity for one logical paid request across retries. First accepted use binds it to exactly one request fingerprint; reuse with different arguments returns 409."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "sealed bytes + settlement receipt"
+          },
+          "202": {
+            "description": "matching request already executing"
+          },
+          "402": {
+            "description": "x402 v2 payment required / payment fault"
+          },
+          "404": {
+            "description": "unknown cid (content-address silence)"
+          },
+          "409": {
+            "description": "paymentId bound to a different request fingerprint"
+          },
+          "410": {
+            "description": "retry entitlement expired"
+          },
+          "503": {
+            "description": "settlement pending review, or capability unavailable"
+          }
+        }
+      }
+    }
+  }
+}

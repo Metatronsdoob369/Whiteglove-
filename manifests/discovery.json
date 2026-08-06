@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
+  "x402Version": 2,
+  "resources": [
+    {
+      "resource": "/roblox-luau/tile_fetch",
+      "operationId": "tile_fetch",
+      "scheme": "exact",
+      "networks": [
+        "eip155:84532"
+      ],
+      "asset": "USDC",
+      "priceAtomic": "500",
+      "challengeEpoch": "2026-08-05.1",
+      "replaySafe": true,
+      "effect": "read_only",
+      "retryEntitlementSeconds": 86400,
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      }
+    },
+    {
+      "resource": "/roblox-luau/pack_inclusion_proof",
+      "operationId": "pack_inclusion_proof",
+      "scheme": "exact",
+      "networks": [
+        "eip155:84532"
+      ],
+      "asset": "USDC",
+      "priceAtomic": "200",
+      "challengeEpoch": "2026-08-05.1",
+      "replaySafe": true,
+      "effect": "read_only",
+      "retryEntitlementSeconds": 86400,
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      }
+    },
+    {
+      "resource": "/roblox-luau/pack_manifest",
+      "operationId": "pack_manifest",
+      "scheme": "exact",
+      "networks": [
+        "eip155:84532"
+      ],
+      "asset": "USDC",
+      "priceAtomic": "1000",
+      "challengeEpoch": "2026-08-05.1",
+      "replaySafe": true,
+      "effect": "read_only",
+      "retryEntitlementSeconds": 86400,
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      }
+    }
+  ]
+}

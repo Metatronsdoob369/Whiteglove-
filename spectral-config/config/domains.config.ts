@@ -99,6 +99,57 @@ export const domains: DomainManifest = {
         "FOLD DISAGREEMENT #1 RESOLVED (arbitration, PR #26): mxbai-embed-large — " +
         "both embed models are active on the Pi, but every ingest script " +
         "hardcodes mxbai-embed-large.",
+
+      // Paid mount (x402 kernel). Sold ops are content-addressed ONLY —
+      // the kNN gate above stays uncalibrated and is deliberately NOT sold;
+      // auditSealPolicy flags that gap until Track C closes it.
+      distribution: "sealed-paid",
+      commercial: {
+        sold: true,
+        unit: "tile",
+        edition: "roblox-luau-2026-08",
+        effect: "read_only",
+        replaySafe: true,
+        capabilityVersion: "1.0.0",
+        operations: [
+          { operationId: "tile_fetch", resultKind: "pack-bytes", deadlineMs: 5, maxResultBytes: 65536, priceAtomic: "500" },
+          { operationId: "pack_inclusion_proof", resultKind: "proof-json", deadlineMs: 5, maxResultBytes: 16384, priceAtomic: "200" },
+          { operationId: "pack_manifest", resultKind: "manifest-json", deadlineMs: 5, maxResultBytes: 2097152, priceAtomic: "1000" },
+        ],
+        substrate: {
+          kind: "sealed-pack",
+          packRef: "roblox-luau-2026-08",
+          trustStoreRef: "terrain-keys",
+          statusListRef: "roblox-luau-status",
+          geometryProfile: "transition-only",
+        },
+        price: {
+          scheme: "exact",
+          networks: ["eip155:84532"], // Base Sepolia; eip155:8453 only via the signed mainnet gate
+          asset: "USDC",
+          payToRef: "roblox-luau-payto",
+        },
+        challengeEpoch: "2026-08-05.1",
+        retryEntitlementSeconds: 86400,
+        resultRetentionSeconds: 86400,
+        fingerprintVersion: "fp-v1",
+        limits: {
+          maxPricePerCallAtomic: "1000",
+          dailySettledValueCeilingAtomic: "50000000", // $50/day at USDC 6 decimals — chosen in advance
+        },
+        licenseGate: {
+          denyLicenses: ["NOASSERTION", "LicenseRef-Proprietary"],
+          forbiddenKeysVersion: "SEALED_FORBIDDEN_KEYS@1",
+          commitmentKeyId: "nodeout-prov-2026a",
+        },
+        compensation: {
+          entitlementExtension: true,
+          makeGood: true,
+          onchainRefund: false,
+          policyRef: "compensation-policy-v1",
+          disputeChannel: "mailto:preston@marshpress.co",
+        },
+      },
     },
 
     // ─── OPERATIONAL: legal corpus, topological ───────────────────────

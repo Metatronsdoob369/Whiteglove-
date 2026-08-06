@@ -6,7 +6,10 @@
     "check": "tsx src/selfcheck.ts",
     "check:refusal": "tsx src/refusal-check.ts",
     "check:canon": "tsx test/canon-golden.ts && tsx test/canon-refusals.ts && python3 test/golden/canon_ref.py",
+    "check:drift": "tsx src/generate-all.ts --check",
+    "check:all": "npm run typecheck && npm run check:refusal && npm run check:canon && npm run check:drift",
     "generate:v2": "tsx src/generate-v2.ts",
+    "generate:all": "tsx src/generate-all.ts && tsx src/generate-v2.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": { "zod": "^3.25.76" },

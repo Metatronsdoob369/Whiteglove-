@@ -11,8 +11,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "node --test dist/test/",
-    "test:src": "tsc && node --test dist/test/"
+    "test": "tsc && node --test 'dist/test/**/*.test.js'"
   },
   "dependencies": {
     "@x402/core": "2.15.0",

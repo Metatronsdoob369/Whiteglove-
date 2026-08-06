@@ -20,3 +20,7 @@ silence-harness-eval/results/report.md
 
 # Contains hardcoded auth keys — never commit
 brain/spectral/pod_bootstrap.sh
+
+# spectral-x402 runtime secrets — never commit
+spectral-x402/.env.local
+spectral-x402/.env

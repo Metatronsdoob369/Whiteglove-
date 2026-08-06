@@ -36,6 +36,17 @@ export interface KernelBootOptions {
   /** Test-only: bypass env resolution for payTo. */
   payToOverride?: string;
   /**
+   * Test-only: the clock the ledger reads. `Ledger` has always accepted one
+   * (ledger.ts) — boot simply never threaded it, so nothing above the ledger
+   * could reach it. Entitlement expiry is a time boundary with three
+   * interesting points (before / at / after), and the only honest way to
+   * assert them is to step a clock to each; a sleep-based test asserts the
+   * scheduler, not the boundary.
+   *
+   * Omit in production: the ledger then reads `Date.now`, exactly as before.
+   */
+  now?: () => number;
+  /**
    * The capabilities this kernel dispatches to, keyed by the manifest's
    * `operationId`. Omit to get the three this kernel has always shipped
    * (`BUILTIN_ADAPTERS`); passing your own list REPLACES that default rather
@@ -62,6 +73,20 @@ export interface RuntimePolicy {
   networks: { mainnetStartupBlocked: string[] };
 }
 
+/**
+ * One published MCP tool, carried VERBATIM out of the generated
+ * `mcp-tools.json` — name, description, and JSON Schema exactly as the
+ * generator wrote them.
+ *
+ * `inputSchema` stays an opaque object on purpose. The moment this file
+ * describes the schema's shape, the schema has two authors.
+ */
+export interface McpToolDeclaration {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
 export interface BootedKernel {
   kernel: Kernel;
   ledger: Ledger;
@@ -70,6 +95,12 @@ export interface BootedKernel {
   policy: RuntimePolicy;
   /** code → HTTP status, for edges that speak HTTP. Verified against generated.lock. */
   refusals: Record<string, { http: number }>;
+  /**
+   * The published tool list, for edges that speak MCP — same arrangement as
+   * `refusals` above: an artifact this boot already digest-verified, handed
+   * to the transport so the transport never re-reads (or re-derives) it.
+   */
+  mcpTools: readonly McpToolDeclaration[];
   close(): void;
 }
 
@@ -125,6 +156,10 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
   // our OpenAPI and the status it receives are the same fact.
   const refusals = read("refusals.json") as { codes: Record<string, { http: number }> };
   const policy = read("runtime-policy.json") as RuntimePolicy;
+  // The published MCP tool list, same digest-verified provenance as the two
+  // above. Read here so a second spoke inherits verification rather than
+  // opening the file (or rebuilding the list) on its own.
+  const mcpTools = (read("mcp-tools.json") as { tools: McpToolDeclaration[] }).tools;
 
   // ── mainnet stays blocked without a signed gate artifact
   const gatePath = path.join(opts.manifestsDir, "mainnet-gate.json");
@@ -210,7 +245,7 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
 
   // ── ledger + crash reconciliation
   const lockDigest = cidOf(lock);
-  const ledger = new Ledger(opts.ledgerPath, { kernelVersion: KERNEL_VERSION, lockDigest });
+  const ledger = new Ledger(opts.ledgerPath, { kernelVersion: KERNEL_VERSION, lockDigest, now: opts.now });
   const recon = ledger.reconcileOnBoot();
   for (const m of mounts.values()) {
     ledger.registerMount({
@@ -281,6 +316,7 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
     mounts,
     policy,
     refusals: refusals.codes,
+    mcpTools,
     close() {
       ledger.close();
     },
@@ -317,8 +353,12 @@ export async function boot(opts: BootOptions): Promise<Booted> {
  * This is what lets a launchd plist carry zero configuration: the service
  * definition stays in git, the values stay in a gitignored file. Shell-set
  * vars still win, so a one-off run can override without editing the file.
+ *
+ * Exported so every entrypoint loads the SAME file the same way. A second
+ * copy in a second entrypoint is a second set of rules about where secrets
+ * come from, which is exactly the drift this function exists to prevent.
  */
-function loadEnvFile(dir: string): string | null {
+export function loadEnvFile(dir: string): string | null {
   for (const name of [".env.local", ".env"]) {
     const p = path.join(dir, name);
     if (!existsSync(p)) continue;

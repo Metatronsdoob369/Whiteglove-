@@ -43,11 +43,25 @@ export type { RateLimitPolicy } from "./limiter.js";
 
 // ── boot: ledger + mounts + kernel, with or without an HTTP listener
 export { boot, bootKernelOnly } from "./server.js";
-export type { BootOptions, KernelBootOptions, Booted, BootedKernel, RuntimePolicy } from "./server.js";
+export type {
+  BootOptions,
+  KernelBootOptions,
+  Booted,
+  BootedKernel,
+  RuntimePolicy,
+  McpToolDeclaration,
+} from "./server.js";
 
 // ── HTTP transport: one of several possible edges, not the kernel's business
 export { createPaidServer, statusFor } from "./http.js";
 export type { HttpOptions, RefusalTable } from "./http.js";
+
+// ── MCP transport: the second edge, over Streamable HTTP. Same kernel, same
+// ledger, same limiter — only the wire differs.
+export { createPaidMcpServer, buildRoutes } from "./transports/mcp.js";
+export type { McpOptions } from "./transports/mcp.js";
+export { bootMcp } from "./mcp-server.js";
+export type { McpBootOptions, BootedMcp } from "./mcp-server.js";
 
 // ── durable state
 export { Ledger, LedgerRefusal } from "./ledger.js";

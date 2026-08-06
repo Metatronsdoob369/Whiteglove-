@@ -37,6 +37,8 @@ const refusals: Array<{ name: string; mutate: (m: any) => void }> = [
   { name: "paid temporal mount off 3072-D", mutate: (m) => (m.pipelines[commercialIdx(m)].dimensionality.dims = 640) },
   { name: "per-call price above daily ceiling", mutate: (m) => (m.pipelines[commercialIdx(m)].commercial.limits.dailySettledValueCeilingAtomic = "1") },
   { name: "placeholder-zero on exact-match gate", mutate: (m) => { const p = m.pipelines[commercialIdx(m)]; p.silence.gate = "exact-match"; /* threshold 0 + closerIs still present → must refuse */ } },
+  { name: "static mount claiming temporal geometry", mutate: (m) => { const p = m.pipelines.find((x: any) => x.id === "medical-medlineplus"); p.dimensionality.temporalAxis = true; } },
+  { name: "temporal paid mount with static profile", mutate: (m) => { const p = m.pipelines.find((x: any) => x.id === "roblox-luau"); p.dimensionality.dims = 768; } },
 ];
 
 for (const c of refusals) {
@@ -96,5 +98,5 @@ try {
   failures++;
 }
 
-console.log(failures === 0 ? "\nAll two-layer checks passed (17/17)." : `\n${failures} check(s) FAILED`);
+console.log(failures === 0 ? "\nAll two-layer checks passed (19/19)." : `\n${failures} check(s) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

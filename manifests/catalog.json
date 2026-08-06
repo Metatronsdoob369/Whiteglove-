@@ -26,6 +26,31 @@
         "disputeChannel": "mailto:preston@marshpress.co"
       },
       "statusListRef": "roblox-luau-status"
+    },
+    {
+      "edition": "medical-medlineplus-2026-08",
+      "domain": "medical-medlineplus",
+      "unit": "tile",
+      "geometryProfile": "static-position",
+      "dims": 768,
+      "temporalAxis": false,
+      "description": "MedlinePlus static terrain sold by content address. Mapped position plus geometric scores plus the retrievable text. Public domain, so no licensing gate beyond locator suppression.",
+      "gate": "exact-match",
+      "calibrated": true,
+      "licenseGate": {
+        "denyLicenses": [
+          "NOASSERTION",
+          "LicenseRef-Proprietary"
+        ]
+      },
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      },
+      "statusListRef": "medical-medlineplus-status"
     }
   ]
 }

@@ -65,6 +65,69 @@
         "policyRef": "compensation-policy-v1",
         "disputeChannel": "mailto:preston@marshpress.co"
       }
+    },
+    {
+      "resource": "/medical-medlineplus/tile_fetch",
+      "operationId": "tile_fetch",
+      "scheme": "exact",
+      "networks": [
+        "eip155:84532"
+      ],
+      "asset": "USDC",
+      "priceAtomic": "300",
+      "challengeEpoch": "2026-08-06.1",
+      "replaySafe": true,
+      "effect": "read_only",
+      "retryEntitlementSeconds": 86400,
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      }
+    },
+    {
+      "resource": "/medical-medlineplus/pack_inclusion_proof",
+      "operationId": "pack_inclusion_proof",
+      "scheme": "exact",
+      "networks": [
+        "eip155:84532"
+      ],
+      "asset": "USDC",
+      "priceAtomic": "150",
+      "challengeEpoch": "2026-08-06.1",
+      "replaySafe": true,
+      "effect": "read_only",
+      "retryEntitlementSeconds": 86400,
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      }
+    },
+    {
+      "resource": "/medical-medlineplus/pack_manifest",
+      "operationId": "pack_manifest",
+      "scheme": "exact",
+      "networks": [
+        "eip155:84532"
+      ],
+      "asset": "USDC",
+      "priceAtomic": "1000",
+      "challengeEpoch": "2026-08-06.1",
+      "replaySafe": true,
+      "effect": "read_only",
+      "retryEntitlementSeconds": 86400,
+      "compensation": {
+        "entitlementExtension": true,
+        "makeGood": true,
+        "onchainRefund": false,
+        "policyRef": "compensation-policy-v1",
+        "disputeChannel": "mailto:preston@marshpress.co"
+      }
     }
   ]
 }

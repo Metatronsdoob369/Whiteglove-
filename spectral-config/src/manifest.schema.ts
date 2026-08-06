@@ -176,7 +176,14 @@ export const CommercialBlock = z.object({
     packRef: logicalRef,
     trustStoreRef: logicalRef,
     statusListRef: logicalRef,
-    geometryProfile: z.enum(["transition-only", "full-concat"]),
+    /**
+     * What geometry the sold tiles carry.
+     *   transition-only  — temporal residuals, no raw embeddings
+     *   static-position  — a single mapped position + scores
+     *   full-concat      — raw per-third embeddings (REFUSED in Phase 1:
+     *                      partially invertible over third-party source)
+     */
+    geometryProfile: z.enum(["transition-only", "static-position", "full-concat"]),
   }),
   price: z.object({
     scheme: z.literal("exact"), // batch/auth-capture/upto refused by construction

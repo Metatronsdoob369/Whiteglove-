@@ -58,6 +58,22 @@
         "maxPricePerCallAtomic": "1000",
         "dailySettledValueCeilingAtomic": "50000000"
       }
+    },
+    "medical-medlineplus": {
+      "deadlineMsByOperation": {
+        "tile_fetch": 5,
+        "pack_inclusion_proof": 5,
+        "pack_manifest": 5
+      },
+      "maxResultBytesByOperation": {
+        "tile_fetch": 131072,
+        "pack_inclusion_proof": 16384,
+        "pack_manifest": 4194304
+      },
+      "limits": {
+        "maxPricePerCallAtomic": "1000",
+        "dailySettledValueCeilingAtomic": "50000000"
+      }
     }
   }
 }

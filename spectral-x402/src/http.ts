@@ -78,7 +78,10 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
   }
 
   return http.createServer(async (req, res) => {
-    const ip = req.socket.remoteAddress ?? "unknown";
+    // The rate-limit identity this edge vouches for. Socket address, never a
+    // client-supplied header: behind a reverse proxy every caller shares one
+    // bucket, which is the safe direction to be wrong in.
+    const clientKey = req.socket.remoteAddress ?? "unknown";
     try {
       const url = new URL(req.url ?? "/", `http://localhost:${opts.port}`);
       const parts = url.pathname.split("/").filter(Boolean);
@@ -107,7 +110,6 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
       if (operationId !== "pack_manifest" && parts.length >= 3) args.cid = parts[2];
 
       const paymentId = header(req, "x-payment-id");
-
       if (opts.requireTls && header(req, "x-forwarded-proto") !== "https") {
         return send(res, 400, { code: "tls_required" }); // fail closed
       }
@@ -129,7 +131,7 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
         paymentId,
         payment,
         transport: "http",
-        clientKey: ip,
+        clientKey,
         resource: url.pathname,
       };
       const outcome = await kernel.handle(inv);

@@ -2,7 +2,7 @@
   "name": "spectral-x402",
   "version": "0.1.0",
   "private": true,
-  "description": "x402 mount kernel \u2014 seller-side payment kernel for sealed terrain packs. Durable ledger, adapter admission, content-addressed retrieval.",
+  "description": "x402 mount kernel — seller-side payment kernel for sealed terrain packs. Durable ledger, adapter admission, content-addressed retrieval.",
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,8 +28,10 @@
     "service:health": "bash service/ctl.sh health"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@x402/core": "2.21.0",
     "@x402/evm": "2.21.0",
+    "@x402/mcp": "2.21.0",
     "better-sqlite3": "^11.10.0",
     "zod": "^3.25.76"
   },

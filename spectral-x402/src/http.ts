@@ -56,7 +56,17 @@ export function statusFor(outcome: KernelOutcome, refusals: RefusalTable): numbe
 }
 
 export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server {
-  function send(res: http.ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}): void {
+  /**
+   * `onSent` runs when this response is finished — every byte flushed. That is
+   * the only moment at which "we sent it" is a fact rather than an intention.
+   */
+  function send(
+    res: http.ServerResponse,
+    status: number,
+    body: unknown,
+    extra: Record<string, string> = {},
+    onSent?: () => void
+  ): void {
     const payload = Buffer.isBuffer(body) ? body : Buffer.from(JSON.stringify(body));
     res.writeHead(status, {
       "content-type": Buffer.isBuffer(body) ? (extra["content-type"] ?? "application/json") : "application/json",
@@ -64,7 +74,7 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
       "cache-control": "no-store", // paid content must never be cached by an intermediary
       ...extra,
     });
-    res.end(payload);
+    res.end(payload, onSent);
   }
 
   return http.createServer(async (req, res) => {
@@ -149,17 +159,36 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
             retryAfterMs: 250,
           });
         case "delivered": {
-          send(res, statusFor(outcome, opts.refusals), outcome.bytes, {
-            "content-type": outcome.contentType,
-            "x-call-id": outcome.callId,
-            "x-payment-response": Buffer.from(JSON.stringify(outcome.receipt)).toString("base64"),
-            "x-entitlement-expires": String(outcome.entitlementExpiresAt),
-            "x-replayed": String(outcome.replayed),
-          });
-          // Bytes first, THEN record delivery — recording a delivery that
-          // never reached the wire is the failure we refuse to manufacture.
-          kernel.recordDelivery(outcome.callId, outcome.bytes.length);
-          return;
+          let acked = false;
+          return send(
+            res,
+            statusFor(outcome, opts.refusals),
+            outcome.bytes,
+            {
+              "content-type": outcome.contentType,
+              "x-call-id": outcome.callId,
+              "x-payment-response": Buffer.from(JSON.stringify(outcome.receipt)).toString("base64"),
+              "x-entitlement-expires": String(outcome.entitlementExpiresAt),
+              "x-replayed": String(outcome.replayed),
+            },
+            () => {
+              // The response is FINISHED — every byte flushed. Acking before
+              // this point records a delivery that may never have left the
+              // socket, which is the failure we refuse to manufacture. A client
+              // that aborts mid-body simply gets no ack: the call stays
+              // `settled` and replayable, which is the correct outcome.
+              if (acked) return;
+              acked = true;
+              try {
+                kernel.recordDelivery(outcome.callId, outcome.bytes.length, inv.transport);
+              } catch (e) {
+                // We are outside the request try/catch here, and the response
+                // is already gone. Losing the ack costs a replay; throwing
+                // inside a stream callback would cost the process.
+                process.stderr.write(`[kernel] delivery ack failed for ${outcome.callId}: ${(e as Error).message}\n`);
+              }
+            }
+          );
         }
       }
     } catch (e) {

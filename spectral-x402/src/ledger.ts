@@ -683,7 +683,14 @@ export class Ledger {
     };
   }
 
-  /** Record delivery AFTER the bytes are on the wire. */
+  /**
+   * Record delivery AFTER the transport's send has completed.
+   *
+   * Read this row for exactly what it is: a SUCCESSFUL WRITE on `transport`,
+   * NOT client consumption. We know the bytes left us; we cannot know they
+   * arrived, were parsed, or were used. Any dispute, credit, or compensation
+   * decision that treats this as proof of receipt is reading it wrong.
+   */
   recordDelivery(callId: string, byteLen: number, transport: string): void {
     const t = this.db.transaction(() => {
       const seq =

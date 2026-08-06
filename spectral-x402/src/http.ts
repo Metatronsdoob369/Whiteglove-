@@ -123,20 +123,17 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
       // method", so args_invalid carries a status the table never assigned it.
       if (req.method !== "GET") return send(res, 405, { code: "args_invalid", detail: "GET only" });
 
-      // /<mount>/tile/<cid> | /<mount>/proof/<cid> | /<mount>/manifest
-      // Route shape, also edge-local: with no mount or verb there is no paid
-      // call to refuse, so these 404s are not table-derived either.
+      // /<mount>/<relative-shape-from-the-manifest's-own-pathTemplate>
+      // Route shape, also edge-local: with no mount segment or no recognized
+      // shape there is no paid call to refuse, so these 404s are not
+      // table-derived either. The shape itself is never hardcoded here — see
+      // `resolveRoute`.
       if (parts.length < 2) return send(res, 404, { code: "args_invalid" });
       const mountId = parts[0];
-      const verb = parts[1];
-      const operationId =
-        verb === "tile" ? "tile_fetch" : verb === "proof" ? "pack_inclusion_proof" : verb === "manifest" ? "pack_manifest" : null;
-      if (!operationId) return send(res, 404, { code: "args_invalid" });
-
-      // Decode only. Whether a cid is well-formed, present, or required is the
-      // kernel's schema question, answered identically for every transport.
-      const args: Record<string, string> = {};
-      if (operationId !== "pack_manifest" && parts.length >= 3) args.cid = parts[2];
+      const relPath = parts.slice(1).join("/");
+      const matched = resolveRoute(kernel, req.method, relPath);
+      if (!matched) return send(res, 404, { code: "args_invalid" });
+      const { operationId, args } = matched;
 
       const paymentId = header(req, "x-payment-id");
       if (opts.requireTls && header(req, "x-forwarded-proto") !== "https") {
@@ -237,13 +234,91 @@ function header(req: http.IncomingMessage, name: string): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
+/**
+ * A mount's own `pathTemplate` (e.g. "/roblox-luau/tile/{cid}") with its
+ * leading segment — the mount's own id — stripped, leaving just the shape a
+ * caller's path is expected to carry after the mount: "tile/{cid}".
+ *
+ * `pathTemplate` always begins with the declaring mount's id (that is how
+ * the generator writes it), so this is the manifest's own convention, not
+ * one invented here.
+ */
+function relativeTemplate(pathTemplate: string): string {
+  return pathTemplate.split("/").filter(Boolean).slice(1).join("/");
+}
+
+/**
+ * Matches a `{name}`-templated relative shape against a caller's relative
+ * path (both already split on "/"), replicating exactly what the verb
+ * ternary this replaces did:
+ *
+ *   - every LITERAL segment of the template must match the actual path at
+ *     the same position — a mismatch, or a missing actual segment where a
+ *     literal is required, is not a match;
+ *   - a `{placeholder}` segment is captured from the actual path ONLY IF
+ *     that position is present — a request with the placeholder segment
+ *     omitted (e.g. `/mount/tile` with no cid) still resolves the
+ *     operationId, just with that key absent from `args`, exactly as the
+ *     old code left `args.cid` unset rather than 404ing; the kernel's own
+ *     argSchema is what refuses a missing required arg, not this edge;
+ *   - actual segments beyond what the template names are ignored, exactly
+ *     as the old code read only `parts[2]` and never looked past it.
+ *
+ * Returns null when a required literal segment doesn't match — the only
+ * case this function treats as "not this operation".
+ */
+function matchPathTemplate(template: string, actualRelPath: string): Record<string, string> | null {
+  const templateParts = template.split("/").filter(Boolean);
+  const actualParts = actualRelPath.split("/").filter(Boolean);
+  for (let i = 0; i < templateParts.length; i++) {
+    const t = templateParts[i];
+    const isPlaceholder = t.startsWith("{") && t.endsWith("}");
+    if (!isPlaceholder && actualParts[i] !== t) return null;
+  }
+  const params: Record<string, string> = {};
+  for (let i = 0; i < templateParts.length; i++) {
+    const t = templateParts[i];
+    if (t.startsWith("{") && t.endsWith("}") && actualParts[i] !== undefined) {
+      params[t.slice(1, -1)] = actualParts[i];
+    }
+  }
+  return params;
+}
+
+/**
+ * Resolves an operationId and its captured args from a caller's relative
+ * path, by trying every operation ANY known mount declares — mount-agnostic
+ * on purpose, exactly like the verb ternary this replaces, which recognized
+ * "tile" / "proof" / "manifest" regardless of which (or whether a real)
+ * mount preceded it. A shape a real mount doesn't actually serve is still
+ * caught — by the kernel's own "unknown mount" / "unknown operation"
+ * refusal, not by this edge guessing which mounts exist.
+ *
+ * Returns null only when NO known mount declares a matching (method, shape)
+ * pair at all — the one case this edge still 404s itself, since there is no
+ * mount or operation for the kernel to refuse.
+ */
+function resolveRoute(kernel: Kernel, method: string, relPath: string): { operationId: string; args: Record<string, string> } | null {
+  for (const mountId of kernel.mountIds()) {
+    const mount = kernel.getMount(mountId)!;
+    for (const op of mount.operations.values()) {
+      if (op.method !== method) continue;
+      const params = matchPathTemplate(relativeTemplate(op.pathTemplate), relPath);
+      if (params) return { operationId: op.operationId, args: params };
+    }
+  }
+  return null;
+}
+
 function kernelDiscovery(kernel: Kernel): unknown {
   const out: unknown[] = [];
   for (const mountId of kernel.mountIds()) {
     const m = kernel.getMount(mountId)!;
     for (const op of m.operations.values()) {
       out.push({
-        resource: `/${m.mountId}/${op.operationId === "tile_fetch" ? "tile/{cid}" : op.operationId === "pack_inclusion_proof" ? "proof/{cid}" : "manifest"}`,
+        // Straight from the manifest — this used to be a ternary rebuilding
+        // the same three shapes by hand; pathTemplate already IS that string.
+        resource: op.pathTemplate,
         operationId: op.operationId,
         scheme: "exact",
         network: m.network,

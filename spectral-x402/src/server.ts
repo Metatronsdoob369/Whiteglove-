@@ -109,7 +109,15 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
       fingerprintVersion: string;
       retryEntitlementSeconds: number;
       limits: { maxPricePerCallAtomic: string; dailySettledValueCeilingAtomic: string };
-      routes: Array<{ operationId: string; resultKind: string; deadlineMs: number; maxResultBytes: number; priceAtomic: string }>;
+      routes: Array<{
+        operationId: string;
+        resultKind: string;
+        deadlineMs: number;
+        maxResultBytes: number;
+        priceAtomic: string;
+        method: string;
+        pathTemplate: string;
+      }>;
     }>;
   };
   // The published refusal vocabulary, digest-verified above. The transport
@@ -143,6 +151,8 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
         deadlineMs: op.deadlineMs,
         maxResultBytes: op.maxResultBytes,
         priceAtomic: op.priceAtomic,
+        method: op.method,
+        pathTemplate: op.pathTemplate,
       });
     }
     mounts.set(r.mountId, {

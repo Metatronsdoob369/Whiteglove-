@@ -31,6 +31,16 @@ export interface MountOperation {
   deadlineMs: number;
   maxResultBytes: number;
   priceAtomic: string;
+  /**
+   * Edge metadata, riding on the operation same as `network` / `asset` /
+   * `payTo` ride on the mount — the manifest's own `method` and
+   * `pathTemplate` (e.g. "GET", "/roblox-luau/tile/{cid}"), carried through
+   * so an HTTP transport can derive routing and discovery from the manifest
+   * instead of hardcoding its own copy of the verb/shape convention. The
+   * kernel itself never reads either field.
+   */
+  method: string;
+  pathTemplate: string;
 }
 
 export interface Mount {

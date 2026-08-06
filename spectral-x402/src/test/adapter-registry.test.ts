@@ -459,6 +459,70 @@ test("registry: an optional field explicitly set to undefined is refused, not a 
   });
 });
 
+test("registry: a coercing field (z.coerce.string()) whose raw value is non-string is refused before fingerprinting, not silently coerced", async () => {
+  await withTmpDir(async (dir) => {
+    const md = manifestsWithExtraRoute(dir, "coerce_op");
+    // z.coerce.string() type-checks against Adapter<AdapterArgs> (its
+    // inferred output is `string`) and passes assertStrictObjectArgSchema
+    // (the OUTER object is still a plain strict ZodObject) — but its parsed
+    // VALUE is a coerced string even when the caller's raw value was an
+    // object or null. A guard checked against parsed.data would miss this
+    // entirely: the coerced value reads as a clean string while inv.args —
+    // what requestFingerprint and runAdapter actually consume — still
+    // carries the original non-string.
+    const coerceAdapter = defineAdapter({
+      operationId: "coerce_op",
+      argSchema: z.object({ tag: z.coerce.string() }).strict(),
+      maxResultBytes: 64,
+      declaredReplaySafe: true,
+      handler: () => ({ bytes: Buffer.from("ok"), contentType: "text/plain" }),
+    });
+    const core = await bootKernelOnly({
+      manifestsDir: md,
+      packsDir: PACKS,
+      ledgerPath: path.join(dir, "ledger.db"),
+      facilitator: new StubFacilitator("valid"),
+      payToOverride: PAY_TO,
+      adapters: [...BUILTIN_ADAPTERS, coerceAdapter],
+    });
+    try {
+      // Sanity: the schema really does coerce this shape into a string —
+      // proving the gap is genuine, not a schema that would have failed
+      // parsing anyway.
+      const parsed = coerceAdapter.argSchema.safeParse({ tag: { a: 1 } });
+      assert.equal(parsed.success, true);
+      if (parsed.success) assert.equal(typeof parsed.data.tag, "string");
+
+      const objectValue = await core.kernel.handle({
+        mountId: MOUNT,
+        operationId: "coerce_op",
+        args: { tag: { a: 1 } } as unknown as Record<string, string>,
+        transport: "http",
+        clientKey: "coerce-test-client-1",
+        resource: `/${MOUNT}/coerce_op`,
+      });
+      assert.equal(objectValue.kind, "refused");
+      if (objectValue.kind === "refused") assert.equal(objectValue.code, "args_invalid");
+
+      // null also coerces to a string ("null") — and must not throw
+      // mid-handle() the way argDigest's `.length` access on a raw null
+      // value would.
+      const nullValue = await core.kernel.handle({
+        mountId: MOUNT,
+        operationId: "coerce_op",
+        args: { tag: null } as unknown as Record<string, string>,
+        transport: "http",
+        clientKey: "coerce-test-client-2",
+        resource: `/${MOUNT}/coerce_op`,
+      });
+      assert.equal(nullValue.kind, "refused");
+      if (nullValue.kind === "refused") assert.equal(nullValue.code, "args_invalid");
+    } finally {
+      core.close();
+    }
+  });
+});
+
 // ─── (e) refusal detail never echoes a caller-chosen key name — Finding 2 ───
 
 test("registry: an unrecognized argument key never echoes the caller's key name in the refusal detail", async () => {

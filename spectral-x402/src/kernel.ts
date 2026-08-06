@@ -321,7 +321,16 @@ export class Kernel {
     // `undefined` mid-`handle()`, pre-payment, and an object value collapses
     // to `[object Object]` in the digest — two materially different
     // requests producing ONE fingerprint. Refuse before either can happen.
-    for (const v of Object.values(parsedArgs.data)) {
+    //
+    // Checked on `inv.args` — the RAW invocation args — not `parsedArgs.data`.
+    // Every consumer downstream of this point (`requestFingerprint`,
+    // `runAdapter`) reads `inv.args`, never the parsed output, so that is
+    // what actually needs guarding. A coercing field (`z.coerce.string()`)
+    // makes the two diverge: it type-checks against Adapter<AdapterArgs> and
+    // its PARSED value is a genuine string, so a check against parsed.data
+    // would pass while `inv.args` still carried the original non-string —
+    // silently reopening exactly the hole this guard exists to close.
+    for (const v of Object.values(inv.args)) {
       if (typeof v !== "string") {
         return { kind: "refused", code: "args_invalid", detail: "argument values must be strings" };
       }

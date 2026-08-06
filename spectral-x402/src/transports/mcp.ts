@@ -60,6 +60,16 @@
  * must be present and allowlisted; Origin is checked only when present,
  * because non-browser MCP clients do not send one.
  *
+ * ── the session budget ──────────────────────────────────────────────────────
+ * `initialize` is the only request that allocates without reaching the
+ * kernel's limiter — that limiter meters `tools/call`, keyed by a session id
+ * that does not exist yet at initialize time. So sessions carry their own
+ * budget: a hard ceiling (`MAX_SESSIONS`, refused at 503 before anything is
+ * allocated) and an idle TTL (`SESSION_IDLE_MS`, swept lazily on the request
+ * path). Neither is optional — a ceiling with no way for abandoned entries to
+ * leave would simply wedge, and a TTL with no ceiling still lets a fast
+ * caller outrun it.
+ *
  * ── what is deliberately NOT here ───────────────────────────────────────────
  * No auth layer, no resumability `EventStore`, no server-initiated
  * notifications beyond what the transport itself needs. The paid gate is the
@@ -96,6 +106,36 @@ const ENDPOINT = "/mcp";
 
 const SESSION_HEADER = "mcp-session-id";
 
+/**
+ * Hard ceiling on live sessions.
+ *
+ * `initialize` is the one request that ALLOCATES (an `Server` plus a
+ * transport) without reaching the kernel's limiter — that limiter meters
+ * `tools/call` keyed by a session id which, at initialize time, does not yet
+ * exist. So without a ceiling here, a caller past the Host/Origin gate can
+ * allocate a pair per request, forever, having paid nothing. This is the same
+ * budget the rebinding gate below already refuses to spend on a request we
+ * will not serve, extended to the request we WILL serve.
+ *
+ * Same reasoning, and the same shape, as `MAX_TRACKED` in limiter.ts.
+ */
+const MAX_SESSIONS = 256;
+
+/**
+ * A session with no request for this long is treated as gone.
+ *
+ * Streamable HTTP puts no keep-alive obligation on a client: DELETE is the
+ * only explicit end, and a client is free to simply stop. A cap alone would
+ * therefore wedge permanently once reached, so the cap needs a way for
+ * abandoned entries to leave.
+ *
+ * Swept LAZILY, on the request path — no interval to keep the process alive,
+ * nothing for a supervisor's drain or a test's teardown to fight.
+ */
+const SESSION_IDLE_MS = 300_000;
+
+export { MAX_SESSIONS, SESSION_IDLE_MS };
+
 export interface McpOptions {
   /**
    * The published tool list, VERBATIM from the generated `mcp-tools.json`
@@ -110,6 +150,17 @@ export interface McpOptions {
   allowedHosts?: readonly string[];
   /** Extra Origin header values to accept, for a browser-hosted client. */
   allowedOrigins?: readonly string[];
+  /** Live-session ceiling. Defaults to `MAX_SESSIONS`. */
+  maxSessions?: number;
+  /**
+   * Test-only: the clock session liveness is measured against.
+   *
+   * Deliberately NOT the ledger's clock, which `bootMcp` leaves alone. The
+   * ledger's is a wall clock for entitlements and a test steps it a day at a
+   * time; sessions would all look abandoned the moment it jumped. These are
+   * two different questions about time and they get two different clocks.
+   */
+  now?: () => number;
 }
 
 /** What a tool name dispatches to, resolved once at construction. */
@@ -182,15 +233,47 @@ export function buildRoutes(kernel: Kernel, tools: readonly McpToolDeclaration[]
 export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Server {
   const routes = buildRoutes(kernel, opts.tools);
   const sessions = new Map<string, Session>();
+  const maxSessions = opts.maxSessions ?? MAX_SESSIONS;
+  const now = opts.now ?? (() => Date.now());
+  /**
+   * Sessions allocated but not yet in the map.
+   *
+   * `onsessioninitialized` fires DURING `handleRequest`, so a burst of
+   * concurrent initializes would every one of them read `sessions.size`
+   * below the cap and allocate. Counting the in-flight ones is what makes the
+   * ceiling a ceiling rather than a ceiling per event-loop turn.
+   */
+  let allocating = 0;
 
   interface Session {
     transport: StreamableHTTPServerTransport;
     server: Server;
+    /** When this session last carried a request. Drives idle eviction. */
+    lastSeen: number;
     /**
      * JSON-RPC request id → the delivery that request produced, awaiting the
      * proof that our send finished. See `armDeliveryAck`.
      */
     pendingAcks: Map<string, { callId: string; byteLen: number }>;
+  }
+
+  /**
+   * Forget a session and tear down what it holds, by exactly the path an
+   * explicit DELETE takes: closing the transport runs the onclose chain,
+   * which is where the `Server` bound to it (and its own delete from this
+   * map, harmlessly a second time) is cleaned up.
+   */
+  function dropSession(id: string, session: Session): void {
+    sessions.delete(id);
+    void session.transport.close();
+  }
+
+  /** Sweep sessions that have gone quiet. Called on the request path, never on a timer. */
+  function evictIdle(): void {
+    const cutoff = now() - SESSION_IDLE_MS;
+    for (const [id, session] of sessions) {
+      if (session.lastSeen <= cutoff) dropSession(id, session);
+    }
   }
 
   /**
@@ -337,7 +420,7 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
       return renderOutcome(outcome, inv, pendingAcks, String(extra.requestId));
     });
 
-    session = { transport, server, pendingAcks };
+    session = { transport, server, pendingAcks, lastSeen: now() };
     await server.connect(transport);
     return session;
   }
@@ -395,6 +478,11 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
       const fault = rebindingFault(req);
       if (fault) return jsonRpcError(res, 403, -32000, fault);
 
+      // Abandoned sessions leave here, on the way in. A client whose own
+      // session has gone quiet past the TTL is swept along with the rest and
+      // then reads as unknown below — which is the truth: it is gone.
+      evictIdle();
+
       if (req.method === "POST") {
         const body = await readJsonBody(req);
         if (body === TOO_LARGE) return jsonRpcError(res, 413, ErrorCode.InvalidRequest, "Body too large");
@@ -402,7 +490,10 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
 
         const sid = header(req, SESSION_HEADER);
         let session = sid === undefined ? undefined : sessions.get(sid);
-        if (!session) {
+        let created = false;
+        if (session) {
+          session.lastSeen = now();
+        } else {
           // An unknown session id is refused rather than quietly starting a
           // new session: a client holding a stale id must learn that its
           // session is gone, not silently get a different one.
@@ -410,14 +501,27 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
           if (!isInitializeRequest(body)) {
             return jsonRpcError(res, 400, ErrorCode.InvalidRequest, "Missing Mcp-Session-Id");
           }
+          // Refused BEFORE allocating anything — the same principle as the
+          // rebinding gate above. Capacity, so 503, matching what the
+          // refusals table declares for capability_unavailable.
+          if (sessions.size + allocating >= maxSessions) {
+            return jsonRpcError(res, 503, -32000, "Session capacity reached");
+          }
+          allocating++;
+          created = true;
           session = await createSession();
         }
-        armDeliveryAck(res, session, requestIdsIn(body));
-        await session.transport.handleRequest(req, res, body);
-        // An initialize the transport itself rejected leaves a Server and a
-        // transport bound to no session and reachable by nothing. Close it
-        // rather than leak it.
-        if (session.transport.sessionId === undefined) void session.transport.close();
+        try {
+          armDeliveryAck(res, session, requestIdsIn(body));
+          await session.transport.handleRequest(req, res, body);
+          // An initialize the transport itself rejected leaves a Server and a
+          // transport bound to no session and reachable by nothing. Close it
+          // rather than leak it.
+          if (session.transport.sessionId === undefined) void session.transport.close();
+        } finally {
+          // Only now: the map insert happens inside handleRequest.
+          if (created) allocating--;
+        }
         return;
       }
 
@@ -425,6 +529,7 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
         const sid = header(req, SESSION_HEADER);
         const session = sid === undefined ? undefined : sessions.get(sid);
         if (!session) return jsonRpcError(res, 404, -32001, "Session not found");
+        session.lastSeen = now();
         return await session.transport.handleRequest(req, res);
       }
 

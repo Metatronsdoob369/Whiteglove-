@@ -32,7 +32,8 @@ import {
   MCP_PAYMENT_RESPONSE_META_KEY,
 } from "@x402/mcp";
 import { bootMcp, type BootedMcp, type McpBootOptions } from "../mcp-server.js";
-import { buildRoutes } from "../transports/mcp.js";
+import { bootKernelOnly } from "../server.js";
+import { buildRoutes, createPaidMcpServer, SESSION_IDLE_MS, type McpOptions } from "../transports/mcp.js";
 import { StubFacilitator } from "../facilitator.js";
 
 const MANIFESTS = path.resolve(__dirname, "../../../manifests");
@@ -422,7 +423,7 @@ function rawPost(
   port: number,
   headers: Record<string, string>,
   body: string
-): Promise<{ status: number; body: string }> {
+): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: string }> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       { host: "127.0.0.1", port, path: "/mcp", method: "POST", headers: { ...headers, "content-length": Buffer.byteLength(body) } },
@@ -430,7 +431,7 @@ function rawPost(
         let text = "";
         res.setEncoding("utf8");
         res.on("data", (c) => (text += c));
-        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: text }));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: text }));
       }
     );
     req.on("error", reject);
@@ -544,7 +545,124 @@ test("mcp: DELETE ends the session and the id stops working", async () => {
   });
 });
 
-// ─── (h) a malformed payment is a payment fault, not a challenge ─────────────
+// ─── (i) the session budget ──────────────────────────────────────────────────
+
+/**
+ * The transport built directly, so a test can set the two knobs `bootMcp`
+ * leaves at their defaults: the session ceiling, and the clock session
+ * liveness is measured against.
+ *
+ * That clock is deliberately NOT the ledger's — the entitlement test above
+ * steps the ledger's a day at a time, which would make every session look
+ * abandoned. Two questions about time, two clocks.
+ */
+async function withTransport(
+  fn: (ctx: { port: number }) => Promise<void>,
+  over: Partial<McpOptions> = {}
+): Promise<void> {
+  const dir = mkdtempSync(path.join(tmpdir(), "x402-mcp-cap-"));
+  const core = await bootKernelOnly({
+    manifestsDir: MANIFESTS,
+    packsDir: PACKS,
+    ledgerPath: path.join(dir, "ledger.db"),
+    facilitator: new StubFacilitator("valid"),
+    payToOverride: PAY_TO,
+  });
+  const server = createPaidMcpServer(core.kernel, { tools: core.mcpTools, requireTls: false, ...over });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  try {
+    await fn({ port: (server.address() as AddressInfo).port });
+  } finally {
+    server.close();
+    server.closeAllConnections();
+    core.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const toolsListBody = () => JSON.stringify({ jsonrpc: "2.0", id: 9, method: "tools/list", params: {} });
+const withSession = (sid: string) => ({ ...RAW_HEADERS, "mcp-session-id": sid });
+
+/** initialize + the initialized notification, returning the server-issued id. */
+async function openRaw(port: number): Promise<string> {
+  const init = await rawPost(port, RAW_HEADERS, initializeBody());
+  assert.equal(init.status, 200, `initialize should have been served: ${init.body}`);
+  const sid = init.headers["mcp-session-id"] as string;
+  assert.ok(sid);
+  await rawPost(port, withSession(sid), JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }));
+  return sid;
+}
+
+test("mcp: session allocation is capped, and a refused initialize costs no session", async () => {
+  await withTransport(
+    async ({ port }) => {
+      const a = await openRaw(port);
+      const b = await openRaw(port);
+
+      const over = await rawPost(port, RAW_HEADERS, initializeBody());
+      assert.equal(over.status, 503, "initialize is the one request that allocates without paying — it needs a ceiling");
+      assert.equal(over.headers["mcp-session-id"], undefined, "a refused initialize must not have allocated a pair");
+
+      // The ceiling refuses NEW sessions; it does not disturb live ones.
+      for (const sid of [a, b]) {
+        assert.equal((await rawPost(port, withSession(sid), toolsListBody())).status, 200);
+      }
+    },
+    { maxSessions: 2 }
+  );
+});
+
+test("mcp: an abandoned session is evicted, freeing its slot, and its id then reads as unknown", async () => {
+  let clock = T0;
+  await withTransport(
+    async ({ port }) => {
+      const sid = await openRaw(port);
+      assert.equal((await rawPost(port, withSession(sid), toolsListBody())).status, 200);
+      assert.equal(
+        (await rawPost(port, RAW_HEADERS, initializeBody())).status,
+        503,
+        "at capacity while the first session is live"
+      );
+
+      clock = T0 + SESSION_IDLE_MS + 1;
+
+      // The slot came back — which is only true if the entry actually left
+      // the map, not merely if a stale id stopped resolving.
+      const replacement = await rawPost(port, RAW_HEADERS, initializeBody());
+      assert.equal(replacement.status, 200);
+      assert.notEqual(replacement.headers["mcp-session-id"], sid);
+
+      assert.equal(
+        (await rawPost(port, withSession(sid), toolsListBody())).status,
+        404,
+        "an evicted id behaves exactly like one that never existed"
+      );
+    },
+    { maxSessions: 1, now: () => clock }
+  );
+});
+
+test("mcp: activity refreshes the TTL — a busy session outlives a quiet one", async () => {
+  let clock = T0;
+  await withTransport(
+    async ({ port }) => {
+      const busy = await openRaw(port);
+      const quiet = await openRaw(port);
+
+      // Just short of the TTL: both still live, and this touches `busy`.
+      clock = T0 + SESSION_IDLE_MS - 1;
+      assert.equal((await rawPost(port, withSession(busy), toolsListBody())).status, 200);
+
+      // Past the TTL as measured from T0, but not from `busy`'s last request.
+      clock = T0 + SESSION_IDLE_MS + 1;
+      assert.equal((await rawPost(port, withSession(busy), toolsListBody())).status, 200, "the busy session survives");
+      assert.equal((await rawPost(port, withSession(quiet), toolsListBody())).status, 404, "the quiet one does not");
+    },
+    { now: () => clock }
+  );
+});
+
+// ─── (j) a malformed payment is a payment fault, not a challenge ─────────────
 
 test("mcp: a present but undecodable x402/payment is refused, not downgraded to a challenge", async () => {
   await withMcp(async ({ open, cid }) => {

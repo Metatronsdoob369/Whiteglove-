@@ -177,8 +177,10 @@ export class StubFacilitator implements FacilitatorClient {
  *                      body, non-2xx. The money may or may not have moved, and
  *                      the ledger quarantines rather than resubmit.
  *
- * That last line is the invariant the whole ledger rests on, so `settle` has
- * exactly one catch and it always returns `indeterminate: true`.
+ * That last line is the invariant the whole ledger rests on, so the catch around
+ * the settle call has exactly one behaviour: `indeterminate: true`. The two
+ * pre-flight guards ahead of it are determinate on purpose — no request left the
+ * process, so there is nothing unknown to hold open.
  */
 export class StandardFacilitator implements FacilitatorClient {
   readonly id: string;

@@ -25,6 +25,7 @@ import { Kernel, BUILTIN_ADAPTERS, type Mount, type MountOperation } from "./ker
 import { buildAdapterRegistry, type Adapter } from "./adapter.js";
 import { StubFacilitator, HttpFacilitator, type FacilitatorClient } from "./facilitator.js";
 import { createPaidServer } from "./http.js";
+import { assertNoRouteCollisions } from "./route-collision.js";
 import { assertNoSpendingKeysInEnv, envVarForRef, resolvePayTo, SecretRefusal } from "./secrets.js";
 import { KERNEL_VERSION } from "./version.js";
 
@@ -176,6 +177,14 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
   const trustStore = JSON.parse(readFileSync(path.join(opts.packsDir, "terrain-keys.json"), "utf8")) as Record<string, TrustEntry>;
   const mounts = new Map<string, Mount>();
   for (const r of routes.mounts) {
+    // Before anything is loaded: two operations of one mount whose path shapes
+    // a first-match resolver cannot separate would silently dispatch one to
+    // the other's adapter and price. The generator refuses this too, but a
+    // hand-edited + re-sealed manifest never passes through the generator, so
+    // the digest checks above would admit it. Checked over the raw route array
+    // — the operations map below is keyed by operationId and would collapse a
+    // duplicate before it could be seen.
+    assertNoRouteCollisions(r.mountId, r.routes);
     const substrate = Substrate.load(path.join(opts.packsDir, r.substrate.packRef), trustStore);
     const payTo = opts.payToOverride ?? resolvePayTo(r.price.payToRef);
     const operations = new Map<string, MountOperation>();

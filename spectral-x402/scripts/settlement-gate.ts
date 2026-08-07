@@ -623,12 +623,9 @@ function assertNotStubSettled(receipt: Receipt): void {
 
 async function phase1(): Promise<number> {
   const pre = await preflight();
-  const account = await loadPayerAccount();
-  const payer = account.address;
 
   log(`gate: service ${BASE_URL} — ${pre.health}`);
   log(`gate: facilitator ${redactUrl(pre.facilitatorUrl)}`);
-  log(`gate: payer ${payer}`);
   log(`gate: rpc ${RPC_URL}`);
 
   // The tile to buy: the first one the live service actually serves.
@@ -644,6 +641,11 @@ async function phase1(): Promise<number> {
   const cid = await firstServedCid(tileTemplate.resource);
   const resource = tileTemplate.resource.replace("{cid}", cid);
 
+  // THE TESTNET GATE, and it runs BEFORE the payer key is unsealed. fetchChallenge
+  // refuses any network other than eip155:84532. Nothing may materialize a
+  // spending key into this process until the service on the other end is
+  // confirmed to be Base Sepolia — a wrong-network service must never so much as
+  // cause the Keychain to be read.
   const challenge = await fetchChallenge(resource);
   const token = challenge.standard.asset;
   if (!sameHex(token, getDefaultAsset(REQUIRED_NETWORK).address)) {
@@ -658,6 +660,12 @@ async function phase1(): Promise<number> {
       `The running process is using a different payTo than the file. Restart the service and re-run.`
     );
   }
+
+  // Only now — network and terms confirmed — is the key unsealed.
+  const account = await loadPayerAccount();
+  const payer = account.address;
+  log(`gate: payer ${payer}`);
+
   const balanceBefore = await assertFunded(token, payer, challenge.requirements.amountAtomic);
   log(`gate: buying ${resource} for ${challenge.requirements.amountAtomic} atomic USDC → ${challenge.requirements.payTo}`);
 

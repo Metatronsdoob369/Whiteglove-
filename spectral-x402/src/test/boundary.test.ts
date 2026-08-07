@@ -32,7 +32,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, mkdirSync, cpSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, cpSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import type { AddressInfo } from "node:net";
@@ -196,31 +196,53 @@ function addEchoCapability(a: { routes: RoutesArtifact; tools: ToolsArtifact }):
 
 // ── (c)'s fixture: a third mount over a pack already in the tree
 //
-// `heatmap-raw-2026-08` is a real sealed pack sitting in packs/, signed by a
-// key already in the local trust store, that no mount currently declares.
 // `Substrate.load` binds a pack to a packRef and to nothing else — there is no
-// mount-id in a seal — so pointing a new mount at it needs no new pack, no new
-// key, and no re-seal. That is what makes this genuinely config-only.
-const THIRD_MOUNT = "heatmap-raw";
-const THIRD_PACK = "heatmap-raw-2026-08";
+// mount id in a seal, and `mounts.mount_id` is the ledger's only uniqueness
+// constraint (no `substrate_pack_id` uniqueness) — so a second mount can be
+// configured over an ALREADY-SEALED substrate. No new pack, no new key, no
+// re-seal, and no new code: a new id, new paths and its own price tier.
+//
+// The pack is the one the `medical-medlineplus` mount already declares, so
+// this test depends on nothing the rest of the file does not already require:
+// boot loads a substrate for EVERY mount in the manifest, so that pack is an
+// unguarded hard dependency of every boot in this suite.
+const THIRD_MOUNT = "medical-bulk";
+const THIRD_SOURCE_MOUNT = "medical-medlineplus";
+const THIRD_PACK = "medical-medlineplus-2026-08";
+
+/**
+ * The new mount's own prices — a cheaper tier over the same bytes.
+ *
+ * They differ from the source mount's on purpose. `requestFingerprint` covers
+ * the substrate's packId but deliberately NOT the mountId, so a mount cloned
+ * price-for-price over a shared pack would fingerprint identically to the one
+ * it was cloned from. Charging differently is what a second tier is for, and
+ * it keeps this fixture from quietly depending on that coincidence.
+ */
+const THIRD_PRICES: Record<string, string> = {
+  tile_fetch: "200",
+  pack_inclusion_proof: "100",
+  pack_manifest: "800",
+};
 
 function addThirdMount(a: { routes: RoutesArtifact; tools: ToolsArtifact }): void {
-  const template = a.routes.mounts.find((m) => m.mountId === MOUNT)!;
+  const template = a.routes.mounts.find((m) => m.mountId === THIRD_SOURCE_MOUNT)!;
   const clone = JSON.parse(JSON.stringify(template)) as MountEntry;
   clone.mountId = THIRD_MOUNT;
-  clone.edition = THIRD_PACK;
-  clone.substrate.packRef = THIRD_PACK;
   clone.substrate.statusListRef = `${THIRD_MOUNT}-status`;
   clone.price.payToRef = `${THIRD_MOUNT}-payto`;
-  // Operation ids, prices and limits are the template's, untouched: the point
-  // is that this mount introduces no new CAPABILITY, only a new substrate.
+  // `packRef` and `edition` are left exactly as cloned: this mount is a new
+  // offering over the SAME sealed substrate. Operation ids and limits are the
+  // template's too — the mount introduces no new CAPABILITY, only a new way
+  // to buy one.
   for (const r of clone.routes) {
-    r.pathTemplate = r.pathTemplate.replace(`/${MOUNT}/`, `/${THIRD_MOUNT}/`);
+    r.pathTemplate = r.pathTemplate.replace(`/${THIRD_SOURCE_MOUNT}/`, `/${THIRD_MOUNT}/`);
+    r.priceAtomic = THIRD_PRICES[r.operationId];
   }
   a.routes.mounts.push(clone);
 
   for (const r of clone.routes) {
-    const source = a.tools.tools.find((t) => t.name === toolName(MOUNT, r.operationId))!;
+    const source = a.tools.tools.find((t) => t.name === toolName(THIRD_SOURCE_MOUNT, r.operationId))!;
     a.tools.tools.push({
       name: toolName(THIRD_MOUNT, r.operationId),
       description: `${r.operationId} over sealed pack ${THIRD_PACK} (x402 metered, ${r.priceAtomic} atomic USDC)`,
@@ -510,14 +532,7 @@ test("boundary: a paymentId bought over HTTP replays over MCP as the same call, 
 
 // ─── (c) a third mount, by configuration alone ───────────────────────────────
 
-test("boundary: a third mount over an existing sealed pack boots and delivers with no new adapter and no code", async (t) => {
-  // Same guard, and the same build command, as agnostic.test.ts: packs/ is
-  // gitignored and this one is built on demand. Absent, there is nothing to
-  // mount; present, this is a real seal-verified substrate.
-  if (!existsSync(path.join(PACKS, `${THIRD_PACK}.dat`))) {
-    t.skip(`binary pack absent — run: node dist/make-pack-raw.js ./packs ${THIRD_PACK} 32 3072`);
-    return;
-  }
+test("boundary: a third mount over an existing sealed pack boots and delivers with no new adapter and no code", async () => {
   await withTmpDir(async (dir) => {
     const md = fixtureManifests(dir, addThirdMount);
     const stub = new StubFacilitator("valid");
@@ -531,19 +546,37 @@ test("boundary: a third mount over an existing sealed pack boots and delivers wi
       assert.equal(e.core.mounts.size, 3);
 
       const cid = tileCid(e.core, THIRD_MOUNT, 0);
+      // Paid at the NEW mount's declared price, not the source mount's 300.
+      // Underpaying is a `payment_underpaid` refusal at the facilitator
+      // boundary, so a 200 delivering is itself the proof that this mount's
+      // own configured price is the one being charged.
       const res = await fetch(`${e.httpUrl}/${THIRD_MOUNT}/tile/${cid}`, {
-        headers: { "x-payment-id": paymentId(), "x-payment": paymentHeader("bnd-third-1", TILE_PRICE) },
+        headers: {
+          "x-payment-id": paymentId(),
+          "x-payment": paymentHeader("bnd-third-1", THIRD_PRICES.tile_fetch),
+        },
       });
       assert.equal(res.status, 200);
+      const receipt = JSON.parse(
+        Buffer.from(res.headers.get("x-payment-response")!, "base64").toString("utf8")
+      ) as { amountAtomic: string };
+      assert.equal(receipt.amountAtomic, THIRD_PRICES.tile_fetch, "the receipt is written at the new tier's price");
       assert.deepEqual(
         Buffer.from(await res.arrayBuffer()),
         Buffer.from(mount.substrate.getTile(cid)!),
-        "the new mount serves its own pack's bytes"
+        "the new mount serves the sealed pack's bytes"
+      );
+      // Same substrate, reached through a mount that did not exist before this
+      // manifest edit — a second Substrate instance over the same pack, loaded
+      // and seal-verified independently at boot.
+      assert.deepEqual(
+        Buffer.from(mount.substrate.getTile(cid)!),
+        Buffer.from(e.core.mounts.get(THIRD_SOURCE_MOUNT)!.substrate.getTile(cid)!)
       );
       assert.equal(
         res.headers.get("content-type"),
         mount.substrate.payloadContentType,
-        "content type comes from the new pack's sealed manifest"
+        "content type comes from the pack's sealed manifest"
       );
       assert.equal(stub.settleCalls, 1);
 
@@ -672,8 +705,8 @@ test("boundary: a generated artifact edited without re-sealing generated.lock re
     // minus the re-seal. So this pins the digest check as the thing standing
     // between a manifest edit and a running kernel, and it pins the relock in
     // `fixtureManifests` as load-bearing rather than decorative. The refusal
-    // lands in boot's FIRST step, before any pack is opened, so this holds
-    // whether or not the third mount's substrate is present on this machine.
+    // lands in boot's FIRST step, before a pack, a ledger or a listener is
+    // touched at all.
     const md = fixtureManifests(dir, addThirdMount, { relock: false });
     await assert.rejects(
       () =>

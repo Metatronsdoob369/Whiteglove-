@@ -27,6 +27,7 @@ import { StubFacilitator, StandardFacilitator, type FacilitatorClient } from "./
 import { createPaidServer } from "./http.js";
 import { assertNoRouteCollisions } from "./route-collision.js";
 import { assertNoSpendingKeysInEnv, envVarForRef, resolvePayTo, SecretRefusal } from "./secrets.js";
+import { assertMountsTranslatable } from "./x402-wire.js";
 import { KERNEL_VERSION } from "./version.js";
 
 export interface KernelBootOptions {
@@ -326,6 +327,17 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
         `one address instead of its declared payToRef. Set ${vars} to the real public ` +
         `receiving address, or drop X402_FACILITATOR_URL to run the local simulation.`
     );
+  }
+
+  // A translating facilitator resolves each mount's symbolic asset to an
+  // on-chain contract address at the boundary. That resolution keys on the SDK's
+  // per-network default-asset name, so a symbol that is right for one network can
+  // be wrong for another ("USDC" on Base Sepolia vs "USD Coin" on Base mainnet).
+  // Prove every mount translates NOW, so an untranslatable one is a fail-closed
+  // boot refusal an operator sees at once rather than a 503 on the first paid
+  // call. Skipped for the stub, which never resolves an address.
+  if (facilitator.id !== "stub") {
+    assertMountsTranslatable([...mounts.values()].map((m) => ({ mountId: m.mountId, network: m.network, asset: m.asset })));
   }
 
   // The declared ceiling, enforced once behind the kernel boundary — the same

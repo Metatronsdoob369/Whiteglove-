@@ -204,16 +204,40 @@ export function decodePaymentEnvelope(value: unknown): EnvelopeDecode {
   // Held separately because the SDK's guards narrow `value` to one version's
   // shape, and the two versions carry scheme/network in different places.
   const rec: Record<string, unknown> = value;
+
+  // `envelope` is a RESERVED field this boundary alone writes. When this
+  // function returns `kind: "payment"`, `payment.envelope` is the decoded
+  // standard envelope AND `payment.nonce/payer/expiresAt` are a read of that
+  // same envelope's signed authorization — one source, never two. A caller that
+  // supplied its OWN `envelope` alongside flat fields of its choosing would
+  // split them: the kernel would fingerprint the caller's flat nonce/payer (and
+  // stamp them into settlement_attempts and the receipt) while the caller's
+  // envelope settled a different authorization — a client-controlled answer to
+  // "which authorization paid". No legitimate wire shape carries this field, so
+  // its presence is refused here, in the one function both spokes share — at the
+  // top level (the HTTP flat payload) and inside `payload` (the MCP wrapper's
+  // scheme slot), the two places an edge would otherwise pass through raw.
+  if (rec.envelope !== undefined || (isRecord(rec.payload) && rec.payload.envelope !== undefined)) {
+    return { kind: "invalid", detail: "payment payload carries a reserved `envelope` field" };
+  }
+
   if (!("x402Version" in rec) || !isRecord(rec.payload)) return { kind: "not-an-envelope" };
   const inner = rec.payload;
   if (typeof inner.nonce === "string") return { kind: "not-an-envelope" };
 
-  // Shape validation is the SDK's, not ours — these are the same guards the
+  // We publish ONLY v2 requirements — `toStandardRequirements` emits the v2
+  // shape, which omits v1's `maxAmountRequired`. A v1 payment would make the
+  // SDK send `x402Version: 1` paired with requirements a v1 facilitator reads as
+  // declaring no maximum, so we cannot honestly serve one. Refuse it here rather
+  // than forward a self-contradicting request. Checked before the v2 guard
+  // because the two schemas are mutually exclusive on `x402Version`.
+  if (isPaymentPayloadV1(value)) {
+    return { kind: "invalid", detail: "x402 v1 payment envelopes are not supported (this seller publishes v2 requirements)" };
+  }
+  // Shape validation is the SDK's, not ours — this is the same guard the
   // standard's own server surface uses.
-  const isV2 = isPaymentPayloadV2(value);
-  const isV1 = !isV2 && isPaymentPayloadV1(value);
-  if (!isV2 && !isV1) {
-    return { kind: "invalid", detail: "not a valid x402 payment envelope" };
+  if (!isPaymentPayloadV2(value)) {
+    return { kind: "invalid", detail: "not a valid x402 v2 payment envelope" };
   }
 
   const facts = readEip3009(inner) ?? readPermit2(inner);
@@ -248,20 +272,43 @@ export function decodePaymentEnvelope(value: unknown): EnvelopeDecode {
   };
 }
 
+/** Longest facilitator reason we will carry; beyond this it is truncated. */
+const MAX_FACILITATOR_REASON_LEN = 64;
+
+/**
+ * A facilitator-supplied verify reason, made unmistakably FOREIGN before it can
+ * become a refusal `code`.
+ *
+ * `invalidReason` is free text a THIRD PARTY controls, and the kernel uses a
+ * verify reason verbatim as its refusal `code`, which `http.ts`'s `statusFor`
+ * indexes into `refusals.json` for an HTTP status. So a facilitator that
+ * returned `"rate_limited"` or `"tile_withdrawn"` would otherwise pick our
+ * status (429, 451) AND the `code` a client's retry logic branches on — it
+ * would be indistinguishable from our own refusal vocabulary. Prefixing with
+ * `facilitator_`, a token no code in `refusals.json` uses, removes the aliasing
+ * for EVERY reason at once (not just the ones that happen to collide today):
+ * `statusFor` finds no such code and renders 402, the honest read of a payment
+ * fault, while the diagnostic string survives. Charset and length are clamped so
+ * nothing unbounded reaches the ledger's transition reason or the response body.
+ */
+export function facilitatorReasonCode(raw: string | undefined): string {
+  if (raw === undefined || raw.trim() === "") return "payment_invalid";
+  const cleaned = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, MAX_FACILITATOR_REASON_LEN);
+  return cleaned === "" ? "payment_invalid" : `facilitator_${cleaned}`;
+}
+
 /**
  * The standard verify response as ours.
  *
- * `invalidReason` is passed through VERBATIM. The standard's reason vocabulary
- * is not our refusals table and pretending otherwise would put a translated
- * word in a facilitator's mouth; `statusFor` already documents this exact case
- * (an undeclared code from a facilitator renders 402). Only a MISSING reason is
- * substituted, because a refusal with no code at all is unrenderable.
+ * `invalidReason` is carried through, but namespaced by `facilitatorReasonCode`
+ * so a third party's string cannot masquerade as one of our declared refusal
+ * codes. The diagnostic value is preserved; the aliasing is not.
  */
 export function fromStandardVerify(res: VerifyResponse): VerifyResult {
   if (res.isValid) return { isValid: true, ...(res.payer ? { payer: res.payer } : {}) };
   return {
     isValid: false,
-    reasonCode: res.invalidReason && res.invalidReason !== "" ? res.invalidReason : "payment_invalid",
+    reasonCode: facilitatorReasonCode(res.invalidReason),
     ...(res.payer ? { payer: res.payer } : {}),
   };
 }
@@ -304,4 +351,56 @@ export function fromStandardSupported(res: SupportedResponse): { schemes: string
     if (k.network) networks.add(k.network);
   }
   return { schemes: [...schemes], networks: [...networks] };
+}
+
+/** The translation-relevant slice of a mount: its network and its declared asset symbol. */
+export interface TranslatableMount {
+  mountId: string;
+  network: string;
+  asset: string;
+}
+
+/**
+ * Boot-time: can every mount's (network, asset) actually be put on the standard
+ * wire? Refuses if not.
+ *
+ * Symbol→address resolution keys on the SDK's default-asset *display name*
+ * (`getDefaultAsset(network).name`), which is not a ticker: Base Sepolia's is
+ * `"USDC"` but Base mainnet's is `"USD Coin"`, as are several other networks'.
+ * So a manifest declaring `asset: "USDC"` on such a network would boot cleanly
+ * and then fail EVERY paid call — `verify` returning `capability_unavailable`,
+ * `settle` returning `requirements_untranslatable` — discovered at the first
+ * customer request instead of at startup. Running the real translation over each
+ * mount at boot converts that latent 503 into a fail-closed refusal the operator
+ * sees immediately, the same posture as the already-shipped route-table refusal.
+ *
+ * Only meaningful when a translating facilitator is configured; the stub takes
+ * our flat requirements directly and never resolves an address, so boot skips
+ * this for it.
+ */
+export function assertMountsTranslatable(mounts: Iterable<TranslatableMount>): void {
+  for (const m of mounts) {
+    try {
+      // Only `network` and `asset` decide translatability; the rest is filler
+      // that `toStandardRequirements` requires but never inspects for this.
+      toStandardRequirements({
+        scheme: "exact",
+        network: m.network,
+        asset: m.asset,
+        amountAtomic: "1",
+        payTo: "0x0000000000000000000000000000000000000000",
+        resource: "/",
+        description: "",
+        maxTimeoutSeconds: 1,
+      });
+    } catch (e) {
+      if (e instanceof WireTranslationError) {
+        throw new Error(
+          `BOOT_REFUSED: mount "${m.mountId}" declares asset "${m.asset}" on ${m.network}, which does not ` +
+            `resolve to a concrete on-chain asset for that network. ${e.message}`
+        );
+      }
+      throw e;
+    }
+  }
 }

@@ -12,7 +12,9 @@ import assert from "node:assert/strict";
 import { isPaymentPayloadV2, isPaymentRequirementsV2 } from "@x402/core/schemas";
 import { getDefaultAsset } from "@x402/evm";
 import {
+  assertMountsTranslatable,
   decodePaymentEnvelope,
+  facilitatorReasonCode,
   fromStandardSettle,
   fromStandardSupported,
   fromStandardVerify,
@@ -221,7 +223,7 @@ test("wire: an envelope the SDK's own schema rejects is a payment fault", () => 
   const decoded = decodePaymentEnvelope(bad);
   assert.equal(decoded.kind, "invalid");
   if (decoded.kind !== "invalid") return;
-  assert.match(decoded.detail, /not a valid x402 payment envelope/);
+  assert.match(decoded.detail, /not a valid x402 v2 payment envelope/);
 });
 
 test("wire: an authorization with no nonce is refused — the ledger digests it unconditionally", () => {
@@ -237,18 +239,131 @@ test("wire: non-objects and non-envelopes never claim to be payments", () => {
   }
 });
 
+// ── C1: the flat fields and the forwarded envelope share one source ────────────
+
+test("wire: a valid envelope's flat fields come from the SIGNATURE, not from sibling top-level keys", () => {
+  // The object IS a genuine standard envelope AND carries attacker-chosen flat
+  // nonce/payer/expiresAt as extra top-level keys. The signed authorization must
+  // win: those siblings are what a spoofer would set to make the kernel
+  // fingerprint one authorization while a different one settles.
+  const env = eip3009Envelope({
+    nonce: "ATTACKER-NONCE",
+    payer: "0x000000000000000000000000000000000000dEaD",
+    expiresAt: 9999999999,
+  });
+  const decoded = decodePaymentEnvelope(env);
+  assert.equal(decoded.kind, "payment");
+  if (decoded.kind !== "payment") return;
+  assert.equal(decoded.payment.nonce, nonce32(), "the signed nonce, not the sibling");
+  assert.equal(decoded.payment.payer, PAYER, "authorization.from, not the sibling payer");
+  assert.equal(decoded.payment.expiresAt, 1900000000, "authorization.validBefore, not the sibling");
+});
+
+test("wire: a client-supplied `envelope` field on the flat path is refused, never forwarded", () => {
+  // The C1 attack: flat fields of the caller's choosing PLUS a genuine signed
+  // envelope smuggled in under a reserved key. The kernel would fingerprint the
+  // flat nonce/payer while the envelope settled a different authorization. The
+  // shared decoder must refuse it rather than admit the split.
+  const genuine = eip3009Envelope();
+  const attack = {
+    scheme: "exact",
+    network: NETWORK,
+    nonce: "ATTACKER-NONCE",
+    payer: "0x000000000000000000000000000000000000dEaD",
+    expiresAt: 9999999999,
+    envelope: genuine,
+  };
+  const decoded = decodePaymentEnvelope(attack);
+  assert.equal(decoded.kind, "invalid");
+  if (decoded.kind !== "invalid") return;
+  assert.match(decoded.detail, /reserved `envelope` field/);
+});
+
+test("wire: a client-supplied `envelope` inside the MCP scheme slot is refused too", () => {
+  // MCP hands the decoder the outer wrapper; the injected field would ride in
+  // its `payload`. Both spokes share this refusal.
+  const attack = {
+    x402Version: 2,
+    accepted: toStandardRequirements(ours()),
+    payload: { scheme: "exact", network: NETWORK, payer: PAYER, nonce: "flat", envelope: eip3009Envelope() },
+  };
+  const decoded = decodePaymentEnvelope(attack);
+  assert.equal(decoded.kind, "invalid");
+  if (decoded.kind !== "invalid") return;
+  assert.match(decoded.detail, /reserved `envelope` field/);
+});
+
+// ── I3: v1 payment envelopes are refused ───────────────────────────────────────
+
+test("wire: an x402 v1 payment envelope is refused (this seller publishes v2 requirements)", () => {
+  const { isPaymentPayloadV1 } = require("@x402/core/schemas") as typeof import("@x402/core/schemas");
+  const v1 = {
+    x402Version: 1,
+    scheme: "exact",
+    network: "base-sepolia",
+    payload: {
+      signature: `0x${"cd".repeat(65)}`,
+      authorization: { from: PAYER, to: PAY_TO, value: "500", validAfter: "0", validBefore: "1900000000", nonce: nonce32() },
+    },
+  };
+  assert.equal(isPaymentPayloadV1(v1), true, "the fixture is a real v1 payload per the SDK guard");
+  const decoded = decodePaymentEnvelope(v1);
+  assert.equal(decoded.kind, "invalid");
+  if (decoded.kind !== "invalid") return;
+  assert.match(decoded.detail, /v1 payment envelopes are not supported/);
+});
+
+// ── I5: boot-time translatability ──────────────────────────────────────────────
+
+test("wire: assertMountsTranslatable passes for a network/symbol that resolves", () => {
+  assert.doesNotThrow(() =>
+    assertMountsTranslatable([{ mountId: "roblox-luau", network: NETWORK, asset: "USDC" }])
+  );
+});
+
+test("wire: assertMountsTranslatable REFUSES a symbol that does not resolve for its network", () => {
+  // Base MAINNET's default asset name is "USD Coin", not "USDC" — so a mount
+  // declaring asset "USDC" there cannot be put on the wire, and boot must refuse
+  // rather than fail every paid call later.
+  assert.equal(getDefaultAsset("eip155:8453").name, "USD Coin", "precondition: mainnet USDC is named 'USD Coin'");
+  assert.throws(
+    () => assertMountsTranslatable([{ mountId: "roblox-luau", network: "eip155:8453", asset: "USDC" }]),
+    (e: Error) => /BOOT_REFUSED/.test(e.message) && /roblox-luau/.test(e.message) && /eip155:8453/.test(e.message)
+  );
+});
+
 // ── responses: the standard's → ours ──────────────────────────────────────────
 
 test("wire: a valid verify carries the facilitator's payer through", () => {
   assert.deepEqual(fromStandardVerify({ isValid: true, payer: PAYER }), { isValid: true, payer: PAYER });
 });
 
-test("wire: an invalidReason passes through VERBATIM, not remapped to our table", () => {
-  // The standard's vocabulary is not refusals.json. statusFor renders an
-  // undeclared code as 402, which is the honest read of a payment fault.
+test("wire: a facilitator invalidReason is namespaced, never left to alias our vocabulary", () => {
+  // The standard's reason vocabulary is not refusals.json, and a bare reason
+  // would index statusFor. The `facilitator_` prefix — a token our refusal
+  // codes never use — keeps the diagnostic string while forcing statusFor to
+  // 402, the honest read of a payment fault.
   const r = fromStandardVerify({ isValid: false, invalidReason: "invalid_exact_evm_payload_authorization_valid_before" });
   assert.equal(r.isValid, false);
-  assert.equal(r.reasonCode, "invalid_exact_evm_payload_authorization_valid_before");
+  assert.equal(r.reasonCode, "facilitator_invalid_exact_evm_payload_authorization_valid_before");
+});
+
+test("wire: a facilitator reason that COLLIDES with a declared code cannot inherit its status", () => {
+  // The whole point of I4: a third party returning one of OUR codes must not
+  // pick that code's HTTP status/semantics.
+  for (const declared of ["rate_limited", "tile_withdrawn", "settlement_rejected", "payment_invalid"]) {
+    const code = facilitatorReasonCode(declared);
+    assert.equal(code, `facilitator_${declared}`);
+    assert.notEqual(code, declared, "the namespaced code is not the declared one");
+  }
+});
+
+test("wire: facilitator reasons are length- and charset-clamped", () => {
+  assert.equal(facilitatorReasonCode("Insufficient Funds!"), "facilitator_insufficient_funds");
+  assert.equal(facilitatorReasonCode("   "), "payment_invalid", "an all-whitespace reason is unrenderable");
+  assert.equal(facilitatorReasonCode(undefined), "payment_invalid");
+  const long = facilitatorReasonCode("x".repeat(500));
+  assert.ok(long.length <= "facilitator_".length + 64, "clamped to the max reason length");
 });
 
 test("wire: an invalid verify with no reason at all still renders", () => {

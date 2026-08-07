@@ -36,7 +36,15 @@ const TX = `0x${"7f".repeat(32)}`;
 let seq = 0;
 const paymentId = () => `pay-${Date.now()}-${String(seq++).padStart(4, "0")}`;
 
-type MockMode = "happy" | "verify-invalid" | "settle-rejected" | "settle-hang" | "settle-drop" | "settle-500";
+type MockMode =
+  | "happy"
+  | "happy-no-payer"
+  | "verify-invalid"
+  | "verify-invalid-collision"
+  | "settle-rejected"
+  | "settle-hang"
+  | "settle-drop"
+  | "settle-500";
 
 /** A standard v2 facilitator, in ~40 lines, that remembers what it was sent. */
 class MockFacilitator {
@@ -75,6 +83,11 @@ class MockFacilitator {
           if (this.mode === "verify-invalid") {
             return json(200, { isValid: false, invalidReason: "insufficient_funds", payer: PAYER });
           }
+          if (this.mode === "verify-invalid-collision") {
+            // A facilitator returning one of OUR declared refusal codes. It must
+            // not be able to pick that code's HTTP status (I4).
+            return json(200, { isValid: false, invalidReason: "rate_limited", payer: PAYER });
+          }
           return json(200, { isValid: true, payer: PAYER });
         }
         if (req.url === "/settle") {
@@ -88,6 +101,12 @@ class MockFacilitator {
           if (this.mode === "settle-500") return json(500, { error: "boom" });
           if (this.mode === "settle-rejected") {
             return json(200, { success: false, errorReason: "insufficient_funds", transaction: "", network: NETWORK });
+          }
+          if (this.mode === "happy-no-payer") {
+            // A conforming facilitator MAY omit payer (it is optional in the SDK
+            // type). The receipt then falls back to inv.payment.payer, which must
+            // be the ENVELOPE's authorization.from — never a client sibling (C1).
+            return json(200, { success: true, transaction: TX, network: NETWORK });
           }
           return json(200, { success: true, transaction: TX, network: NETWORK, payer: PAYER });
         }
@@ -293,15 +312,78 @@ test("standard: a STATED settlement failure is determinate — rejected, not qua
   });
 });
 
-test("standard: a facilitator's invalidReason reaches the caller verbatim, and nothing settles", async () => {
+test("standard: a facilitator's invalidReason reaches the caller namespaced, and nothing settles", async () => {
   await withMock("verify-invalid", async ({ url, mock, cid, count }) => {
     const resource = `/roblox-luau/tile/${cid}`;
     const res = await fetch(`${url}${resource}`, {
       headers: { "x-payment-id": paymentId(), "x-payment": paymentHeader(envelopeFor("500", resource)) },
     });
-    assert.equal(res.status, 402, "an undeclared facilitator reason renders 402, per statusFor");
-    assert.equal((await res.json() as { code: string }).code, "insufficient_funds");
+    assert.equal(res.status, 402, "a facilitator-namespaced reason is undeclared, so statusFor renders 402");
+    assert.equal((await res.json() as { code: string }).code, "facilitator_insufficient_funds");
     assert.equal(mock.hits.settle, 0, "a payment that did not verify is never settled");
+    assert.equal(count("receipts"), 0);
+  });
+});
+
+test("standard: a facilitator reason that COLLIDES with a declared code cannot steal its status (I4)", async () => {
+  await withMock("verify-invalid-collision", async ({ url, cid }) => {
+    // The facilitator returns "rate_limited" — one of OUR codes, which the table
+    // maps to 429. Namespaced, it can neither pick 429 nor masquerade as ours.
+    const resource = `/roblox-luau/tile/${cid}`;
+    const res = await fetch(`${url}${resource}`, {
+      headers: { "x-payment-id": paymentId(), "x-payment": paymentHeader(envelopeFor("500", resource)) },
+    });
+    assert.equal(res.status, 402, "NOT 429 — the facilitator does not choose our status");
+    assert.equal((await res.json() as { code: string }).code, "facilitator_rate_limited");
+  });
+});
+
+test("standard: a valid envelope with mismatched sibling flat fields settles against the ENVELOPE (C1)", async () => {
+  // The C1 receipt-integrity proof: an envelope whose signed authorization names
+  // PAYER, carrying attacker-chosen top-level flat nonce/payer. The facilitator
+  // omits payer, so the receipt falls back to inv.payment.payer — which MUST be
+  // the authorization's from, not the sibling. If the sibling leaked through,
+  // the receipt would name it.
+  await withMock("happy-no-payer", async ({ url, b, cid, count }) => {
+    const resource = `/roblox-luau/tile/${cid}`;
+    const spoofed = {
+      ...envelopeFor("500", resource),
+      nonce: "ATTACKER-NONCE",
+      payer: "0x000000000000000000000000000000000000dEaD",
+      expiresAt: 9999999999,
+    };
+    const res = await fetch(`${url}${resource}`, {
+      headers: { "x-payment-id": paymentId(), "x-payment": paymentHeader(spoofed) },
+    });
+    assert.equal(res.status, 200, "the genuine authorization settles");
+    const receipt = JSON.parse(Buffer.from(res.headers.get("x-payment-response")!, "base64").toString("utf8"));
+    assert.equal(receipt.payer, PAYER, "receipt.payer is the ENVELOPE's authorization.from, not the sibling");
+    assert.notEqual(receipt.payer, "0x000000000000000000000000000000000000dEaD");
+    // The ledger fingerprinted the signed nonce, not the sibling.
+    const auth = b.ledger.db.prepare("SELECT payer FROM authorizations LIMIT 1").get() as { payer: string };
+    assert.equal(auth.payer, PAYER, "the authorization the kernel recorded is the signed one");
+    assert.equal(count("receipts", "success=1"), 1);
+  });
+});
+
+test("standard: a legacy flat payment carrying an injected `envelope` is refused (C1)", async () => {
+  // The flat path with a smuggled reserved field: the shared decoder refuses it,
+  // so the split authorization never reaches the kernel or the facilitator.
+  await withMock("happy", async ({ url, mock, cid, count }) => {
+    const resource = `/roblox-luau/tile/${cid}`;
+    const attack = {
+      scheme: "exact",
+      network: NETWORK,
+      nonce: "ATTACKER-NONCE",
+      payer: "0x000000000000000000000000000000000000dEaD",
+      envelope: envelopeFor("500", resource),
+    };
+    const res = await fetch(`${url}${resource}`, {
+      headers: { "x-payment-id": paymentId(), "x-payment": paymentHeader(attack) },
+    });
+    assert.equal(res.status, 402);
+    assert.equal((await res.json() as { code: string }).code, "payment_invalid");
+    assert.equal(mock.hits.verify, 0, "the split payment never reached the facilitator");
     assert.equal(count("receipts"), 0);
   });
 });

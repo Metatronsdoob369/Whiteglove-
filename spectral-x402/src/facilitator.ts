@@ -19,7 +19,7 @@
 import { HTTPFacilitatorClient } from "@x402/core/http";
 import { FacilitatorTimeoutError, SettleError, VerifyError } from "@x402/core/types";
 import type { PaymentPayload as StandardPaymentPayload } from "@x402/core/types";
-import { fromStandardSettle, fromStandardSupported, fromStandardVerify, toStandardRequirements } from "./x402-wire.js";
+import { facilitatorReasonCode, fromStandardSettle, fromStandardSupported, fromStandardVerify, toStandardRequirements } from "./x402-wire.js";
 
 export interface PaymentRequirements {
   scheme: "exact";
@@ -223,11 +223,14 @@ export class StandardFacilitator implements FacilitatorClient {
     try {
       return fromStandardVerify(await this.client.verify(payload.envelope as StandardPaymentPayload, standard));
     } catch (e) {
-      // A non-2xx that still carried a verify body is a real answer.
+      // A non-2xx that still carried a verify body is a real answer — its
+      // reason is facilitator-origin, so it is namespaced the same way a 2xx
+      // invalid reason is (see facilitatorReasonCode), never left to alias one
+      // of our declared refusal codes.
       if (e instanceof VerifyError) {
         return {
           isValid: false,
-          reasonCode: e.invalidReason && e.invalidReason !== "" ? e.invalidReason : "payment_invalid",
+          reasonCode: facilitatorReasonCode(e.invalidReason),
           ...(e.payer ? { payer: e.payer } : {}),
         };
       }

@@ -23,7 +23,7 @@ import { Ledger } from "./ledger.js";
 import { Substrate, canonicalize, cidOf, type TrustEntry } from "./substrate.js";
 import { Kernel, BUILTIN_ADAPTERS, type Mount, type MountOperation } from "./kernel.js";
 import { buildAdapterRegistry, type Adapter } from "./adapter.js";
-import { StubFacilitator, HttpFacilitator, type FacilitatorClient } from "./facilitator.js";
+import { StubFacilitator, StandardFacilitator, type FacilitatorClient } from "./facilitator.js";
 import { createPaidServer } from "./http.js";
 import { assertNoRouteCollisions } from "./route-collision.js";
 import { assertNoSpendingKeysInEnv, envVarForRef, resolvePayTo, SecretRefusal } from "./secrets.js";
@@ -274,7 +274,9 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
   let facilitator = opts.facilitator;
   if (!facilitator) {
     if (process.env.X402_FACILITATOR_URL) {
-      facilitator = new HttpFacilitator(
+      // `id` stays "http": it is written into every receipt's `facilitator_id`,
+      // so renaming the class must not rename rows in a live ledger.
+      facilitator = new StandardFacilitator(
         process.env.X402_FACILITATOR_URL,
         process.env.X402_FACILITATOR_API_KEY,
         "http"

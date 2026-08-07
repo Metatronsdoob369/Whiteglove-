@@ -72,7 +72,7 @@ export { Substrate, SubstrateRefusal, canonicalize, cidOf } from "./substrate.js
 export type { TrustEntry } from "./substrate.js";
 
 // ── payment boundary
-export { StubFacilitator, HttpFacilitator } from "./facilitator.js";
+export { StubFacilitator, StandardFacilitator } from "./facilitator.js";
 export type {
   FacilitatorClient,
   PaymentPayload,
@@ -81,6 +81,20 @@ export type {
   SettleResult,
   StubMode,
 } from "./facilitator.js";
+
+// ── the standard-wire seam. Exported because a transport's decode point needs
+// `decodePaymentEnvelope`, and an operator tool proving settlement needs the
+// SAME `toStandardRequirements` the facilitator boundary uses — a second
+// translation would prove a payment the server never asked for.
+export {
+  decodePaymentEnvelope,
+  toStandardRequirements,
+  fromStandardVerify,
+  fromStandardSettle,
+  fromStandardSupported,
+  WireTranslationError,
+} from "./x402-wire.js";
+export type { EnvelopeDecode } from "./x402-wire.js";
 
 // ── the paymentId rule we publish, so a caller can hold itself to it too
 export {

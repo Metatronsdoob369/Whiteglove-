@@ -31,6 +31,7 @@
 import * as http from "node:http";
 import { Kernel, type KernelOutcome, type PaidInvocation } from "./kernel.js";
 import type { PaymentPayload } from "./facilitator.js";
+import { decodePaymentEnvelope } from "./x402-wire.js";
 
 const BODY_CAP = 65536;
 
@@ -143,11 +144,22 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
       let payment: PaymentPayload | undefined;
       const raw = header(req, "x-payment");
       if (raw) {
+        let decoded: unknown;
         try {
-          payment = JSON.parse(Buffer.from(raw, "base64").toString("utf8")) as PaymentPayload;
+          decoded = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
         } catch {
           return send(res, 402, { code: "payment_invalid", detail: "unparseable X-Payment header" });
         }
+        // Wire decode, which is this edge's own job: a standard x402 v2 envelope
+        // and our legacy flat payload arrive in the same header, and the kernel
+        // reads only the flat fields. An envelope is read into them from its
+        // SIGNED authorization; anything that is not an envelope is passed
+        // through exactly as it always has been, unexamined.
+        const wire = decodePaymentEnvelope(decoded);
+        if (wire.kind === "invalid") {
+          return send(res, 402, { code: "payment_invalid", detail: wire.detail });
+        }
+        payment = wire.kind === "payment" ? wire.payment : (decoded as PaymentPayload);
       }
 
       const inv: PaidInvocation = {

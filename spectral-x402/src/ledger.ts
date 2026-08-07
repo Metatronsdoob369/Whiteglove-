@@ -35,6 +35,15 @@ const TRANSITIONS: Array<[CallState, CallState, boolean]> = [
   ["challenged", "payment_present", false],
   ["payment_present", "verified", false],
   ["payment_present", "execution_failed", false],
+  // The retry edge `kernel.handle()` documents and relies on: a call that
+  // reached `execution_failed` was officially CANCELLED — no result was
+  // committed, no receipt exists, no settlement was ever attempted — so the
+  // same paymentId, still bound to the same requestFingerprint, may be
+  // presented again. Not a recovery edge: nothing is being reconciled, the
+  // call simply re-enters the ordinary path from its start. Without it the
+  // ledger threw ILLEGAL_TRANSITION out of the middle of `handle()` and every
+  // subsequent use of that paymentId failed the same way, forever.
+  ["execution_failed", "payment_present", false],
   ["verified", "executing", false],
   ["executing", "executed", false],
   ["executing", "execution_failed", false],

@@ -726,3 +726,66 @@ test("boundary: a generated artifact edited without re-sealing generated.lock re
     );
   });
 });
+
+// ─── (g) revenue never routes to a placeholder ───────────────────────────────
+
+test("boundary: a real facilitator paired with the dev payTo fallback refuses boot", async () => {
+  // The hazard both CLIs can reach by omission: `X402_PAYTO_<REF>` unset makes
+  // them substitute a `0x…dev` placeholder for every mount's payTo, and
+  // `X402_FACILITATOR_URL` set makes settlement real. Neither setting looks
+  // wrong alone; together they sell real data for money sent to an address
+  // nobody holds the key to. The guard lives in `bootKernelOnly`, so it covers
+  // the HTTP spoke and the MCP spoke from one place rather than two copies.
+  //
+  // No listener, no facilitator object: the refusal happens before either
+  // could matter, which is why the URL below never has to resolve.
+  await withTmpDir(async (dir) => {
+    const prev = process.env.X402_FACILITATOR_URL;
+    process.env.X402_FACILITATOR_URL = "https://facilitator.invalid";
+    try {
+      await assert.rejects(
+        () =>
+          bootKernelOnly({
+            manifestsDir: MANIFESTS,
+            packsDir: PACKS,
+            ledgerPath: path.join(dir, "ledger.db"),
+            payToOverride: PAY_TO,
+          }),
+        (e: Error) => {
+          assert.match(e.message, /BOOT_REFUSED/);
+          assert.match(e.message, /X402_FACILITATOR_URL/);
+          assert.match(e.message, /payTo/);
+          assert.match(e.message, /X402_PAYTO_/, "the refusal names the variable that fixes it");
+          return true;
+        }
+      );
+    } finally {
+      if (prev === undefined) delete process.env.X402_FACILITATOR_URL;
+      else process.env.X402_FACILITATOR_URL = prev;
+    }
+  });
+});
+
+test("boundary: the dev payTo fallback stays bootable against a stub facilitator", async () => {
+  // The inverse, stated once explicitly rather than left implicit in the other
+  // 120-odd tests: the refusal targets the PAIRING, not `payToOverride`. A
+  // local simulation with the placeholder address is exactly the configuration
+  // every suite in this package runs, and it must keep booting.
+  await withTmpDir(async (dir) => {
+    const prev = process.env.X402_FACILITATOR_URL;
+    delete process.env.X402_FACILITATOR_URL;
+    try {
+      const core = await bootKernelOnly({
+        manifestsDir: MANIFESTS,
+        packsDir: PACKS,
+        ledgerPath: path.join(dir, "ledger.db"),
+        facilitator: new StubFacilitator("valid"),
+        payToOverride: PAY_TO,
+      });
+      assert.equal([...core.mounts.values()][0].payTo, PAY_TO);
+      core.close();
+    } finally {
+      if (prev !== undefined) process.env.X402_FACILITATOR_URL = prev;
+    }
+  });
+});

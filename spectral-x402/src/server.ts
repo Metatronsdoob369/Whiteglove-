@@ -25,7 +25,7 @@ import { Kernel, BUILTIN_ADAPTERS, type Mount, type MountOperation } from "./ker
 import { buildAdapterRegistry, type Adapter } from "./adapter.js";
 import { StubFacilitator, HttpFacilitator, type FacilitatorClient } from "./facilitator.js";
 import { createPaidServer } from "./http.js";
-import { assertNoSpendingKeysInEnv, resolvePayTo, SecretRefusal } from "./secrets.js";
+import { assertNoSpendingKeysInEnv, envVarForRef, resolvePayTo, SecretRefusal } from "./secrets.js";
 import { KERNEL_VERSION } from "./version.js";
 
 export interface KernelBootOptions {
@@ -297,6 +297,26 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
     );
   }
 
+  // The mirror-image pairing, and the more expensive one. `payToOverride` is
+  // the test-only bypass of env resolution, and BOTH CLIs substitute a
+  // `0x…dev` placeholder for it when the mount's payTo variable is unset. Pair
+  // that with a real facilitator and the service boots clean, verifies real
+  // payments, and settles real money to an address nobody holds the key to —
+  // silently, because every individual setting looks fine on its own. Same
+  // rule as above: two independent settings must not both have to be right.
+  //
+  // `opts.facilitator` is the same escape hatch the guard above uses: an
+  // in-process facilitator is by definition not a revenue path.
+  if (!opts.facilitator && facilitator.id !== "stub" && opts.payToOverride !== undefined) {
+    const vars = [...new Set(routes.mounts.map((m) => envVarForRef(m.price.payToRef)))].join(", ");
+    throw new Error(
+      `BOOT_REFUSED: real facilitator (X402_FACILITATOR_URL) paired with an ` +
+        `overridden payTo (${opts.payToOverride}) — every mount would settle to that ` +
+        `one address instead of its declared payToRef. Set ${vars} to the real public ` +
+        `receiving address, or drop X402_FACILITATOR_URL to run the local simulation.`
+    );
+  }
+
   // The declared ceiling, enforced once behind the kernel boundary — the same
   // numbers the HTTP edge used to hold, now shared with every future spoke.
   const kernel = new Kernel(
@@ -403,6 +423,9 @@ if (require.main === module) {
     // Absent env → inherit runtime-policy (true). Only an explicit "0"
     // disables the fail-closed TLS check, so forgetting to set it is safe.
     requireTls: process.env.X402_REQUIRE_TLS !== "0",
+    // Local-simulation convenience only. `bootKernelOnly` refuses this
+    // fallback outright when X402_FACILITATOR_URL is set, so it can never
+    // become "real money to a burn address".
     payToOverride: process.env.X402_PAYTO_ROBLOX_LUAU_PAYTO ? undefined : "0x0000000000000000000000000000000000000dev",
   })
     .then((b) => {

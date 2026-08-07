@@ -76,6 +76,9 @@ if (require.main === module) {
     // Absent env → inherit runtime-policy (true). Only an explicit "0"
     // disables the fail-closed TLS check, so forgetting to set it is safe.
     requireTls: process.env.X402_REQUIRE_TLS !== "0",
+    // Local-simulation convenience only, and refused by the SAME guard in
+    // `bootKernelOnly` the HTTP surface inherits: a real facilitator paired
+    // with this fallback would settle real money to a burn address.
     payToOverride: process.env.X402_PAYTO_ROBLOX_LUAU_PAYTO ? undefined : "0x0000000000000000000000000000000000000dev",
   })
     .then((b) => {

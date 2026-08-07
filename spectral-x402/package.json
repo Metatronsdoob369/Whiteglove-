@@ -25,7 +25,9 @@
     "service:restart": "bash service/ctl.sh restart",
     "service:status": "bash service/ctl.sh status",
     "service:logs": "bash service/ctl.sh logs",
-    "service:health": "bash service/ctl.sh health"
+    "service:health": "bash service/ctl.sh health",
+    "gate:settlement": "tsc -p tsconfig.gate.json && node dist-gate/scripts/settlement-gate.js",
+    "typecheck:gate": "tsc -p tsconfig.gate.json --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
@@ -38,6 +40,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.40",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "viem": "2.55.11"
   }
 }

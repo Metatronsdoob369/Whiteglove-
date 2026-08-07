@@ -143,26 +143,11 @@ export function createPaidServer(kernel: Kernel, opts: HttpOptions): http.Server
       let payment: PaymentPayload | undefined;
       const raw = header(req, "x-payment");
       if (raw) {
-        let decoded: unknown;
         try {
-          decoded = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+          payment = JSON.parse(Buffer.from(raw, "base64").toString("utf8")) as PaymentPayload;
         } catch {
           return send(res, 402, { code: "payment_invalid", detail: "unparseable X-Payment header" });
         }
-        // A payload that parses but carries no nonce is still a broken
-        // payment, and it has to be caught HERE. The ledger digests the nonce
-        // unconditionally, so `handle()` throws on it mid-flight — after
-        // admission, before any outcome exists — and this edge's catch-all
-        // has nothing to render but an unmetered 500. The MCP edge already
-        // refuses the same payload cleanly as `payment_invalid`; a payment
-        // fault must not be a 500 on one door and a 402 on the other.
-        //
-        // The guard stays at the edge on purpose: decoding the wire is what
-        // this file owns, and the kernel learns nothing new about transports.
-        if (typeof decoded !== "object" || decoded === null || typeof (decoded as Partial<PaymentPayload>).nonce !== "string") {
-          return send(res, 402, { code: "payment_invalid", detail: "payment payload carries no nonce" });
-        }
-        payment = decoded as PaymentPayload;
       }
 
       const inv: PaidInvocation = {

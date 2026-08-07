@@ -123,8 +123,19 @@ class ProofFailed extends Error {
 
 const log = (s: string) => process.stdout.write(`${s}\n`);
 const sha256 = (b: Buffer) => createHash("sha256").update(b).digest("hex");
-const sameAddress = (a: string | null | undefined, b: string | null | undefined): boolean =>
+/** Case-insensitive hex compare — addresses arrive EIP-55-checksummed from some sources and lowercase from others. */
+const sameHex = (a: string | null | undefined, b: string | null | undefined): boolean =>
   typeof a === "string" && typeof b === "string" && a.toLowerCase() === b.toLowerCase();
+
+/** A facilitator URL, safe to log: some deployments carry a key in the query string. */
+const redactUrl = (u: string): string => {
+  try {
+    const parsed = new URL(u);
+    return parsed.search ? `${parsed.origin}${parsed.pathname}?<redacted>` : `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return "<unparseable facilitator url>";
+  }
+};
 
 let seq = 0;
 const freshPaymentId = () => `gate-${Date.now()}-${String(seq++).padStart(4, "0")}`;
@@ -342,7 +353,7 @@ async function transferEvidenceFor(txHash: `0x${string}`, token: string): Promis
     throw new ProofFailed("1 GENUINE SETTLEMENT", `transaction ${txHash} has chain status "${receipt.status}"`);
   }
   for (const l of receipt.logs) {
-    if (!sameAddress(l.address, token)) continue;
+    if (!sameHex(l.address, token)) continue;
     if (l.topics[0]?.toLowerCase() !== TRANSFER_TOPIC) continue;
     const decoded = chain.viem.decodeEventLog({ abi: ERC20, topics: l.topics, data: l.data }) as unknown as {
       eventName: string;
@@ -463,6 +474,16 @@ interface Phase1State {
 
 const STATE_PATH = path.join(EVIDENCE_DIR, "settlement-gate-phase1.json");
 
+/**
+ * What has been established so far, and against what.
+ *
+ * Module-level because a FAILING gate is exactly when the report matters, and
+ * the top-level handler has to be able to write one from wherever the failure
+ * happened. This is a single-run CLI; there is one gate per process.
+ */
+const collected: ProofRecord[] = [];
+let evidenceContext: Record<string, unknown> = {};
+
 function writeEvidence(phase: string, proofs: ProofRecord[], context: Record<string, unknown>): string {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -499,9 +520,10 @@ function writeEvidence(phase: string, proofs: ProofRecord[], context: Record<str
   md.push(
     "## Secrets",
     "",
-    "The payer's private key was held in process memory for the duration of one signature,",
-    "sourced from the macOS Keychain, and appears nowhere in this report. The payer ADDRESS",
-    "below is public and appears on chain regardless.",
+    "The payer's private key was held in process memory for the duration of one signature —",
+    "read from the macOS Keychain (or, for a one-shot run, PAYER_PRIVATE_KEY) — and appears",
+    "nowhere in this report. The payer ADDRESS recorded above is public and is on chain",
+    "regardless. A facilitator URL is recorded with any query string redacted.",
     ""
   );
   writeFileSync(`${base}.md`, `${md.join("\n")}\n`);
@@ -605,7 +627,7 @@ async function phase1(): Promise<number> {
   const payer = account.address;
 
   log(`gate: service ${BASE_URL} — ${pre.health}`);
-  log(`gate: facilitator ${pre.facilitatorUrl}`);
+  log(`gate: facilitator ${redactUrl(pre.facilitatorUrl)}`);
   log(`gate: payer ${payer}`);
   log(`gate: rpc ${RPC_URL}`);
 
@@ -616,21 +638,21 @@ async function phase1(): Promise<number> {
   const tileTemplate = discovery.resources.find((r) => r.operationId === "tile_fetch");
   if (!tileTemplate) throw new ProofFailed("discovery", "no tile_fetch operation is published");
 
-  // A cid the pack really holds. The proof endpoint is free of side effects and
-  // the manifest operation would cost more, so the cid comes from the challenge
-  // path we are about to buy: read it off the sealed pack the service serves.
+  // A cid the pack really holds. Every operation that would NAME one costs
+  // money, so it is read off the sealed pack on disk — the same artifact the
+  // service loaded and merkle-verified at boot.
   const cid = await firstServedCid(tileTemplate.resource);
   const resource = tileTemplate.resource.replace("{cid}", cid);
 
   const challenge = await fetchChallenge(resource);
   const token = challenge.standard.asset;
-  if (!sameAddress(token, getDefaultAsset(REQUIRED_NETWORK).address)) {
+  if (!sameHex(token, getDefaultAsset(REQUIRED_NETWORK).address)) {
     throw new ProofFailed(
       "challenge",
       `the challenge resolves to token ${token}, not Base Sepolia USDC ${getDefaultAsset(REQUIRED_NETWORK).address}`
     );
   }
-  if (!sameAddress(challenge.requirements.payTo, pre.payTo)) {
+  if (!sameHex(challenge.requirements.payTo, pre.payTo)) {
     throw new ProvisioningMissing(
       `the live challenge pays to ${challenge.requirements.payTo}, but ${ENV_LOCAL} declares ${pre.payTo}`,
       `The running process is using a different payTo than the file. Restart the service and re-run.`
@@ -640,7 +662,21 @@ async function phase1(): Promise<number> {
   log(`gate: buying ${resource} for ${challenge.requirements.amountAtomic} atomic USDC → ${challenge.requirements.payTo}`);
 
   const startBlock = await chain.client.getBlockNumber();
-  const proofs: ProofRecord[] = [];
+  const proofs = collected;
+  evidenceContext = {
+    service: BASE_URL,
+    facilitator: redactUrl(pre.facilitatorUrl),
+    rpc: RPC_URL,
+    network: REQUIRED_NETWORK,
+    chainId: REQUIRED_CHAIN_ID,
+    payerAddress: payer,
+    payerUsdcBalanceBefore: balanceBefore,
+    payTo: challenge.requirements.payTo,
+    token,
+    challengeEpoch: challenge.challengeEpoch ?? "(absent)",
+    startBlock: startBlock.toString(),
+    kernelLedger: LEDGER_PATH,
+  };
 
   // ── proof 1: genuine settlement ────────────────────────────────────────────
   const paymentId = freshPaymentId();
@@ -658,10 +694,10 @@ async function phase1(): Promise<number> {
     throw new ProofFailed("1 GENUINE SETTLEMENT", `receipt.transaction "${receipt.transaction}" is not a 32-byte tx hash`);
   }
   const evidence = await transferEvidenceFor(receipt.transaction as `0x${string}`, token);
-  if (!sameAddress(evidence.from, payer)) {
+  if (!sameHex(evidence.from, payer)) {
     throw new ProofFailed("1 GENUINE SETTLEMENT", `chain transfer is from ${evidence.from}, not the payer ${payer}`);
   }
-  if (!sameAddress(evidence.to, challenge.requirements.payTo)) {
+  if (!sameHex(evidence.to, challenge.requirements.payTo)) {
     throw new ProofFailed(
       "1 GENUINE SETTLEMENT",
       `chain transfer is to ${evidence.to}, not the mount's payTo ${challenge.requirements.payTo}`
@@ -698,8 +734,8 @@ async function phase1(): Promise<number> {
 
   // ── proof 2: receipt field match ───────────────────────────────────────────
   const mismatches: string[] = [];
-  if (!sameAddress(receipt.payer, payer)) mismatches.push(`payer ${receipt.payer} != ${payer}`);
-  if (!sameAddress(receipt.payTo, challenge.requirements.payTo)) {
+  if (!sameHex(receipt.payer, payer)) mismatches.push(`payer ${receipt.payer} != ${payer}`);
+  if (!sameHex(receipt.payTo, challenge.requirements.payTo)) {
     mismatches.push(`payTo ${receipt.payTo} != ${challenge.requirements.payTo}`);
   }
   if (receipt.asset !== challenge.requirements.asset) {
@@ -709,8 +745,8 @@ async function phase1(): Promise<number> {
     mismatches.push(`amountAtomic ${receipt.amountAtomic} != ${challenge.requirements.amountAtomic}`);
   }
   if (receipt.network !== REQUIRED_NETWORK) mismatches.push(`network ${receipt.network} != ${REQUIRED_NETWORK}`);
-  if (!sameAddress(receipt.payer, evidence.from)) mismatches.push(`payer ${receipt.payer} != chain from ${evidence.from}`);
-  if (!sameAddress(receipt.payTo, evidence.to)) mismatches.push(`payTo ${receipt.payTo} != chain to ${evidence.to}`);
+  if (!sameHex(receipt.payer, evidence.from)) mismatches.push(`payer ${receipt.payer} != chain from ${evidence.from}`);
+  if (!sameHex(receipt.payTo, evidence.to)) mismatches.push(`payTo ${receipt.payTo} != chain to ${evidence.to}`);
   if (receipt.amountAtomic !== evidence.value) {
     mismatches.push(`amountAtomic ${receipt.amountAtomic} != chain value ${evidence.value}`);
   }
@@ -840,20 +876,7 @@ async function phase1(): Promise<number> {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   writeFileSync(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`);
 
-  const base = writeEvidence("phase 1 (proofs 1–4)", proofs, {
-    service: BASE_URL,
-    facilitator: pre.facilitatorUrl,
-    rpc: RPC_URL,
-    network: REQUIRED_NETWORK,
-    chainId: REQUIRED_CHAIN_ID,
-    payerAddress: payer,
-    payerUsdcBalanceBefore: balanceBefore,
-    payTo: challenge.requirements.payTo,
-    token,
-    challengeEpoch: challenge.challengeEpoch ?? "(absent)",
-    startBlock: startBlock.toString(),
-    kernelLedger: LEDGER_PATH,
-  });
+  const base = writeEvidence("phase 1 (proofs 1–4)", proofs, evidenceContext);
 
   log("");
   log(`gate: phase 1 PASS — evidence at ${base}.md / .json`);
@@ -886,6 +909,17 @@ async function phase2(argPaymentId?: string): Promise<number> {
     );
   }
   const pre = await preflight();
+  evidenceContext = {
+    service: BASE_URL,
+    facilitator: redactUrl(pre.facilitatorUrl),
+    rpc: RPC_URL,
+    network: state.network,
+    payerAddress: state.payerAddress,
+    payTo: state.payTo,
+    token: state.token,
+    phase1Transaction: state.transaction,
+    phase1RecordedAt: state.recordedAt,
+  };
   log(`gate: phase 2 — service ${BASE_URL} — ${pre.health}`);
   log(`gate: replaying ${paymentId} recorded at ${state.recordedAt}`);
 
@@ -904,7 +938,7 @@ async function phase2(argPaymentId?: string): Promise<number> {
     throw new ProofFailed("5 RESTART PRESERVES ENTITLEMENT", `x-replayed was ${JSON.stringify(replay.replayed)}`);
   }
   const transfers = await transfersFromPayer(state.token, state.payerAddress, state.payTo, BigInt(state.blockNumber));
-  const extra = transfers.filter((h) => !sameAddress(h, state.transaction));
+  const extra = transfers.filter((h) => !sameHex(h, state.transaction));
   if (extra.length > 0) {
     throw new ProofFailed(
       "5 RESTART PRESERVES ENTITLEMENT",
@@ -918,48 +952,33 @@ async function phase2(argPaymentId?: string): Promise<number> {
       `the ledger records ${facts.settlementAttempts} settlement attempts, not 1`
     );
   }
-  if (!facts.txns.some((t) => sameAddress(t, state.transaction))) {
+  if (!facts.txns.some((t) => sameHex(t, state.transaction))) {
     throw new ProofFailed(
       "5 RESTART PRESERVES ENTITLEMENT",
       `the ledger's receipt no longer names phase 1's transaction ${state.transaction}`
     );
   }
 
-  const base = writeEvidence(
-    "phase 2 (proof 5)",
-    [
-      {
-        id: "5",
-        title: "RESTART PRESERVES ENTITLEMENT — the phase-1 purchase replays byte-identically after a restart",
-        passed: true,
-        facts: {
-          paymentId,
-          resource: state.resource,
-          httpStatus: replay.status,
-          "x-replayed": replay.replayed,
-          bodySha256: sha256(replay.bytes),
-          phase1BodySha256: state.bodySha256,
-          byteIdentical: true,
-          "ledger.state": facts.state ?? "",
-          "ledger.settlementAttempts": facts.settlementAttempts,
-          "ledger.receiptTransaction": facts.txns.join(","),
-          "chain.transfersSincePhase1Block": transfers.join(",") || "(none)",
-          "chain.newTransfers": 0,
-        },
-      },
-    ],
-    {
-      service: BASE_URL,
-      facilitator: pre.facilitatorUrl,
-      rpc: RPC_URL,
-      network: state.network,
-      payerAddress: state.payerAddress,
-      payTo: state.payTo,
-      token: state.token,
-      phase1Transaction: state.transaction,
-      phase1RecordedAt: state.recordedAt,
-    }
-  );
+  collected.push({
+    id: "5",
+    title: "RESTART PRESERVES ENTITLEMENT — the phase-1 purchase replays byte-identically after a restart",
+    passed: true,
+    facts: {
+      paymentId,
+      resource: state.resource,
+      httpStatus: replay.status,
+      "x-replayed": replay.replayed,
+      bodySha256: sha256(replay.bytes),
+      phase1BodySha256: state.bodySha256,
+      byteIdentical: true,
+      "ledger.state": facts.state ?? "",
+      "ledger.settlementAttempts": facts.settlementAttempts,
+      "ledger.receiptTransaction": facts.txns.join(","),
+      "chain.transfersSincePhase1Block": transfers.join(",") || "(none)",
+      "chain.newTransfers": 0,
+    },
+  });
+  const base = writeEvidence("phase 2 (proof 5)", collected, evidenceContext);
   log("  proof 5 PASS — byte-identical after restart, one settlement attempt, no new transfer");
   log("");
   log(`gate: phase 2 PASS — evidence at ${base}.md / .json`);
@@ -967,10 +986,12 @@ async function phase2(argPaymentId?: string): Promise<number> {
 }
 
 /**
- * The cid to buy. Read out of the sealed pack the LIVE service serves, via its
- * own free discovery surface plus one paid manifest call's worth of knowledge we
- * do not have — so instead: the pack directory on disk, which is the same
- * artifact the service loaded and verified at boot.
+ * The cid to buy.
+ *
+ * Discovery publishes the path TEMPLATE, not the tiles, and every operation
+ * that would name a tile is paid — so the cid is read from the sealed pack on
+ * disk, which is the same artifact the service loaded and merkle-verified at
+ * boot. `X402_GATE_CID` overrides it for a pack this process cannot see.
  */
 async function firstServedCid(tileTemplate: string): Promise<string> {
   const override = process.env.X402_GATE_CID;
@@ -1010,7 +1031,22 @@ main()
   .catch((e) => {
     // A gate that fails quietly is worse than no gate. Never print the key,
     // and never print a stack for an operator-facing refusal.
-    if (e instanceof ProvisioningMissing || e instanceof ProofFailed) {
+    if (e instanceof ProofFailed) {
+      // A FAILING gate is exactly when the report matters most: it records what
+      // did hold, and the fact that stopped the run.
+      const [headline, ...rest] = e.message.split("\n");
+      collected.push({
+        id: "!",
+        title: headline,
+        passed: false,
+        facts: { detail: rest.join(" ").trim() },
+      });
+      const base = writeEvidence("FAILED", collected, evidenceContext);
+      process.stderr.write(`\n${e.message}\n\n  evidence: ${base}.md / .json\n\n`);
+      process.exit(2);
+    }
+    if (e instanceof ProvisioningMissing) {
+      // Nothing was proved and nothing was attempted — no report to write.
       process.stderr.write(`\n${e.message}\n\n`);
       process.exit(2);
     }

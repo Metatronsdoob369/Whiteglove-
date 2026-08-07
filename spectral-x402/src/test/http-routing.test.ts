@@ -28,21 +28,27 @@ const MANIFESTS = path.resolve(__dirname, "../../../manifests");
 const PACKS = path.resolve(__dirname, "../../packs");
 const PAY_TO = "0x0000000000000000000000000000000000000dev";
 
-async function withServer(fn: (ctx: { url: string; b: Booted }) => Promise<void>): Promise<void> {
+async function withServer(
+  fn: (ctx: { url: string; b: Booted; facilitator: StubFacilitator }) => Promise<void>
+): Promise<void> {
   const dir = mkdtempSync(path.join(tmpdir(), "x402-routing-"));
+  // Held rather than inlined so a test can read its call counters — "the
+  // facilitator was never asked" is how a refusal proves it happened before
+  // the kernel's verify step, not after.
+  const facilitator = new StubFacilitator("valid");
   const b = await boot({
     manifestsDir: MANIFESTS,
     packsDir: PACKS,
     ledgerPath: path.join(dir, "ledger.db"),
     port: 0,
-    facilitator: new StubFacilitator("valid"),
+    facilitator,
     requireTls: false,
     payToOverride: PAY_TO,
   });
   await new Promise<void>((r) => b.server.listen(0, "127.0.0.1", r));
   const url = `http://127.0.0.1:${(b.server.address() as AddressInfo).port}`;
   try {
-    await fn({ url, b });
+    await fn({ url, b, facilitator });
   } finally {
     b.close();
     rmSync(dir, { recursive: true, force: true });
@@ -128,6 +134,63 @@ test("routing: a trailing extra segment past the template is ignored, same as th
     assert.equal(res.status, 402);
     const body = (await res.json()) as { error: string };
     assert.equal(body.error, "payment_id_missing");
+  });
+});
+
+// ─── a malformed X-Payment is a payment fault at the edge, never a 500 ──────
+//
+// The MCP edge already refuses a payload with no nonce as `payment_invalid`,
+// before the kernel sees it. This edge did not: the ledger digests the nonce
+// unconditionally, so the throw landed mid-`handle()` — past admission, with
+// no outcome to render — and fell out of the catch-all as an unmetered 500.
+// The same payload was therefore a clean 402 on one door and an internal
+// error on the other.
+
+/** base64 of an arbitrary JSON payload, the way a client sends X-Payment. */
+const xPayment = (payload: unknown): string => Buffer.from(JSON.stringify(payload)).toString("base64");
+
+const NONCE_LESS: Array<{ name: string; payload: unknown }> = [
+  { name: "no nonce key at all", payload: { scheme: "exact", network: "eip155:84532" } },
+  { name: "a non-string nonce", payload: { scheme: "exact", network: "eip155:84532", nonce: 12345 } },
+  { name: "a null nonce", payload: { scheme: "exact", network: "eip155:84532", nonce: null } },
+  { name: "a JSON null payload", payload: null },
+  { name: "a JSON array payload", payload: [{ nonce: "n1" }] },
+];
+
+for (const c of NONCE_LESS) {
+  test(`routing: an X-Payment with ${c.name} is refused payment_invalid at the edge, not a 500`, async () => {
+    await withServer(async ({ url, facilitator }) => {
+      const res = await fetch(`${url}/roblox-luau/manifest`, {
+        headers: {
+          "x-payment-id": "pay-nonceless-000001",
+          "x-payment": xPayment(c.payload),
+        },
+      });
+      assert.equal(res.status, 402, "a broken payment is a payment fault");
+      const body = (await res.json()) as { code: string; detail?: string };
+      assert.equal(body.code, "payment_invalid");
+      assert.notEqual(body.code, "capability_unavailable", "the catch-all 500's code must not appear");
+      // Refused at DECODE: the kernel was never entered, so nothing was
+      // verified and nothing was settled for a payload it could not complete.
+      assert.equal(facilitator.verifyCalls, 0, "a payload refused at the edge never reaches the facilitator");
+      assert.equal(facilitator.settleCalls, 0);
+    });
+  });
+}
+
+test("routing: a well-formed X-Payment still reaches the kernel — the nonce guard refuses only what is broken", async () => {
+  await withServer(async ({ url }) => {
+    const res = await fetch(`${url}/roblox-luau/manifest`, {
+      headers: {
+        "x-payment-id": "pay-wellformed-00001",
+        // A real nonce, but terms the facilitator will judge — the point is
+        // only that the edge passed it THROUGH rather than refusing it here.
+        "x-payment": xPayment({ scheme: "exact", network: "eip155:84532", nonce: "n-abc", payer: "0xabc" }),
+      },
+    });
+    assert.notEqual(res.status, 500, "a decodable payment must never reach the catch-all");
+    const body = (await res.json()) as { code?: string; detail?: string };
+    assert.notEqual(body.detail, "payment payload carries no nonce", "the guard must not have fired");
   });
 });
 

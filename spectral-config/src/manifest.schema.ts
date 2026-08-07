@@ -162,6 +162,23 @@ export const CommercialBlock = z.object({
     .array(
       z.object({
         operationId: z.string().regex(/^[a-z][a-z0-9_]*$/),
+        /**
+         * The paid route this operation answers on, DECLARED — never inferred
+         * from the operationId. Absolute and mount-prefixed
+         * (`/roblox-luau/tile/{cid}`), because that is the string the generated
+         * artifacts publish and the HTTP edge matches against.
+         *
+         * The generator refuses a mount whose declared templates collide under
+         * first-match resolution (src/route-collision.ts); the schema only
+         * pins the shape. A defaulted template is exactly the defect that
+         * check exists to prevent, so there is deliberately no default here.
+         */
+        pathTemplate: z
+          .string()
+          .regex(
+            /^(\/[A-Za-z0-9_.-]+|\/\{[a-z][A-Za-z0-9_]*\})+$/,
+            "pathTemplate: /-separated literal segments and {placeholder} segments only"
+          ),
         resultKind: z.enum(["pack-bytes", "manifest-json", "proof-json"]),
         deadlineMs: z.number().int().positive().max(1000),
         maxResultBytes: z.number().int().positive(),

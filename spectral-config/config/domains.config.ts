@@ -111,10 +111,13 @@ export const domains: DomainManifest = {
         effect: "read_only",
         replaySafe: true,
         capabilityVersion: "1.0.0",
+        // pathTemplate is DECLARED per operation, never inferred from the
+        // operationId. Generation refuses two operations of one mount whose
+        // shapes a first-match resolver cannot tell apart (src/route-collision.ts).
         operations: [
-          { operationId: "tile_fetch", resultKind: "pack-bytes", deadlineMs: 5, maxResultBytes: 65536, priceAtomic: "500" },
-          { operationId: "pack_inclusion_proof", resultKind: "proof-json", deadlineMs: 5, maxResultBytes: 16384, priceAtomic: "200" },
-          { operationId: "pack_manifest", resultKind: "manifest-json", deadlineMs: 5, maxResultBytes: 2097152, priceAtomic: "1000" },
+          { operationId: "tile_fetch", pathTemplate: "/roblox-luau/tile/{cid}", resultKind: "pack-bytes", deadlineMs: 5, maxResultBytes: 65536, priceAtomic: "500" },
+          { operationId: "pack_inclusion_proof", pathTemplate: "/roblox-luau/proof/{cid}", resultKind: "proof-json", deadlineMs: 5, maxResultBytes: 16384, priceAtomic: "200" },
+          { operationId: "pack_manifest", pathTemplate: "/roblox-luau/manifest", resultKind: "manifest-json", deadlineMs: 5, maxResultBytes: 2097152, priceAtomic: "1000" },
         ],
         substrate: {
           kind: "sealed-pack",
@@ -685,10 +688,11 @@ export const domains: DomainManifest = {
         effect: "read_only",
         replaySafe: true,
         capabilityVersion: "1.0.0",
+        // Declared, not inferred — see the roblox-luau mount above.
         operations: [
-          { operationId: "tile_fetch", resultKind: "pack-bytes", deadlineMs: 5, maxResultBytes: 131072, priceAtomic: "300" },
-          { operationId: "pack_inclusion_proof", resultKind: "proof-json", deadlineMs: 5, maxResultBytes: 16384, priceAtomic: "150" },
-          { operationId: "pack_manifest", resultKind: "manifest-json", deadlineMs: 5, maxResultBytes: 4194304, priceAtomic: "1000" },
+          { operationId: "tile_fetch", pathTemplate: "/medical-medlineplus/tile/{cid}", resultKind: "pack-bytes", deadlineMs: 5, maxResultBytes: 131072, priceAtomic: "300" },
+          { operationId: "pack_inclusion_proof", pathTemplate: "/medical-medlineplus/proof/{cid}", resultKind: "proof-json", deadlineMs: 5, maxResultBytes: 16384, priceAtomic: "150" },
+          { operationId: "pack_manifest", pathTemplate: "/medical-medlineplus/manifest", resultKind: "manifest-json", deadlineMs: 5, maxResultBytes: 4194304, priceAtomic: "1000" },
         ],
         substrate: {
           kind: "sealed-pack",

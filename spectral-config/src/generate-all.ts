@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { MANIFEST } from "./index.js";
 import { auditSealPolicy, type DomainPipeline } from "./manifest.schema.js";
 import { canonicalize, cidOfBytes } from "./canon.js";
+import { assertMountRouteShapes, RouteShapeError } from "./route-collision.js";
 
 /**
  * paymentId contract published to buyers. Mirrors
@@ -39,6 +40,34 @@ const soldMounts = MANIFEST.pipelines.filter(
   (p): p is DomainPipeline & { commercial: NonNullable<DomainPipeline["commercial"]> } =>
     p.distribution === "sealed-paid" && !!p.commercial && p.commercial.sold
 );
+
+/**
+ * Route authority, checked BEFORE a single artifact is rendered.
+ *
+ * Emitting first and validating after would leave a colliding manifest on
+ * disk for the next boot to read, so this is the first thing generation does
+ * with the mounts it is about to publish. Exit 1, no partial write — the same
+ * fail-closed shape as the kernel's own boot refusals.
+ */
+for (const p of soldMounts) {
+  try {
+    assertMountRouteShapes(
+      p.id,
+      p.commercial.operations.map((op) => ({
+        operationId: op.operationId,
+        // Hardcoded here, exactly as `routesArtifact` emits it. Every sold
+        // operation is GET; the day one is not, it becomes a declared field
+        // and this reads it instead.
+        method: "GET",
+        pathTemplate: op.pathTemplate,
+      }))
+    );
+  } catch (e) {
+    if (!(e instanceof RouteShapeError)) throw e;
+    console.error(`GENERATION REFUSED: ${e.message}`);
+    process.exit(1);
+  }
+}
 
 // ─── refusals.json — the stable machine-readable error table ──────────────────
 // Every transport maps kernel outcomes through this; no transport invents a code.
@@ -102,12 +131,11 @@ function routesArtifact() {
       routes: p.commercial.operations.map((op) => ({
         operationId: op.operationId,
         method: "GET",
-        pathTemplate:
-          op.operationId === "tile_fetch"
-            ? `/${p.id}/tile/{cid}`
-            : op.operationId === "pack_inclusion_proof"
-              ? `/${p.id}/proof/{cid}`
-              : `/${p.id}/manifest`,
+        // Declared by the operation, never inferred here. The ternary this
+        // replaces gave EVERY unrecognized operationId pack_manifest's path,
+        // which the first-match HTTP resolver then dispatched to the wrong
+        // operation — see route-collision.ts, which refuses the tie.
+        pathTemplate: op.pathTemplate,
         resultKind: op.resultKind,
         deadlineMs: op.deadlineMs,
         maxResultBytes: op.maxResultBytes,

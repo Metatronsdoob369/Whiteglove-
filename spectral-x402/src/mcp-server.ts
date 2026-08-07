@@ -22,7 +22,7 @@
  */
 import type * as http from "node:http";
 import * as path from "node:path";
-import { bootKernelOnly, loadEnvFile, type BootedKernel, type KernelBootOptions } from "./server.js";
+import { bootKernelOnly, loadEnvFile, rateLimitPolicyFrom, type BootedKernel, type KernelBootOptions } from "./server.js";
 import { createPaidMcpServer } from "./transports/mcp.js";
 import { SecretRefusal } from "./secrets.js";
 
@@ -48,6 +48,12 @@ export async function bootMcp(opts: McpBootOptions): Promise<BootedMcp> {
     requireTls: opts.requireTls ?? core.policy.paid.requireTls,
     allowedHosts: opts.allowedHosts,
     allowedOrigins: opts.allowedOrigins,
+    // Session creation is metered per remote address under the operator's
+    // OWN declared ceilings — the same ones the kernel meters paid calls
+    // with, read from the same digest-verified artifact. Without this the
+    // session id, which is the rate-limit identity for every paid call on
+    // this spoke, is refreshable by DELETE + re-initialize.
+    initRateLimit: rateLimitPolicyFrom(core.policy),
   });
 
   return {

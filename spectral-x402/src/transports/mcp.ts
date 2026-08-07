@@ -70,6 +70,33 @@
  * leave would simply wedge, and a TTL with no ceiling still lets a fast
  * caller outrun it.
  *
+ * A ceiling and a TTL still leave one hole, and it is the interesting one: the
+ * session id IS the rate-limit identity for every paid call, and the client
+ * chooses when to stop using one. DELETE the session, initialize again, and
+ * the kernel's limiter sees a brand-new `mcp:<uuid>` with a full bucket —
+ * identity refreshed at will, from one address, having paid nothing. MAX_SESSIONS
+ * caps how many exist at once, never how fast they cycle. On the HTTP spoke the
+ * identity is a socket address and cannot be refreshed that way.
+ *
+ * So session CREATION is metered too, per remote address, under a key
+ * (`mcp-init:<addr>`) the client cannot rotate — and metered on the ATTEMPT,
+ * inside a time window, so releasing a session gives nothing back. That is
+ * what makes the DELETE + re-initialize loop terminate.
+ *
+ * It is a second `RateLimiter` INSTANCE, not a second limiter implementation
+ * and not a second policy: same class, same operator-declared ceilings, a key
+ * namespace disjoint from every key the kernel's limiter holds (a session id
+ * can never look like `mcp-init:<addr>`). Sharing the kernel's instance would
+ * buy nothing the disjoint namespace does not already give, and would let an
+ * init flood evict paying clients from that limiter's tracking table. Paid
+ * calls still meter EXACTLY as the plan mandates: one shared kernel-side
+ * limiter, keyed by session id, no per-transport ceiling.
+ *
+ * Omitting `initRateLimit` leaves creation unmetered — the ceiling and TTL
+ * still apply. Both shipped entrypoints pass it; a caller assembling the
+ * transport by hand opts in, which is what keeps a test that mints sessions in
+ * a tight loop from having to reason about a wall clock.
+ *
  * ── what is deliberately NOT here ───────────────────────────────────────────
  * No auth layer, no resumability `EventStore`, no server-initiated
  * notifications beyond what the transport itself needs. The paid gate is the
@@ -94,6 +121,7 @@ import {
 } from "@x402/mcp";
 import type { Network, PaymentRequired, SettleResponse } from "@x402/core/types";
 import { Kernel, type KernelOutcome, type PaidInvocation } from "../kernel.js";
+import { RateLimiter, type RateLimitPolicy } from "../limiter.js";
 import type { PaymentPayload } from "../facilitator.js";
 import type { McpToolDeclaration } from "../server.js";
 import { KERNEL_VERSION } from "../version.js";
@@ -152,6 +180,16 @@ export interface McpOptions {
   allowedOrigins?: readonly string[];
   /** Live-session ceiling. Defaults to `MAX_SESSIONS`. */
   maxSessions?: number;
+  /**
+   * Ceilings for metering session CREATION per remote address. Omit and
+   * creation is unmetered (the ceiling and idle TTL still apply).
+   *
+   * Both shipped entrypoints pass the operator's declared runtime policy —
+   * `rateLimitPolicyFrom(core.policy)` — so the request that mints a
+   * rate-limit identity is itself metered under one the client cannot rotate.
+   * See the session-budget note in this file's header.
+   */
+  initRateLimit?: RateLimitPolicy;
   /**
    * Test-only: the clock session liveness is measured against.
    *
@@ -235,6 +273,13 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
   const sessions = new Map<string, Session>();
   const maxSessions = opts.maxSessions ?? MAX_SESSIONS;
   const now = opts.now ?? (() => Date.now());
+  /**
+   * Meters session creation per remote address. Same class and same declared
+   * ceilings as the kernel's limiter, over a key namespace disjoint from it —
+   * see the session-budget note in the header for why an instance rather than
+   * the kernel's own. Undefined when the caller did not opt in.
+   */
+  const initLimiter = opts.initRateLimit ? new RateLimiter(opts.initRateLimit) : undefined;
   /**
    * Sessions allocated but not yet in the map.
    *
@@ -500,6 +545,19 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
           if (sid !== undefined) return jsonRpcError(res, 404, -32001, "Session not found");
           if (!isInitializeRequest(body)) {
             return jsonRpcError(res, 400, ErrorCode.InvalidRequest, "Missing Mcp-Session-Id");
+          }
+          // The bucket a client cannot rotate. Charged on the ATTEMPT and
+          // keyed by the socket address, so DELETE + re-initialize spends
+          // rather than resets — which is the whole point: the session id it
+          // would receive is the rate-limit identity for every paid call it
+          // then makes. Metered as anonymous (no paymentId exists at
+          // initialize), and refused BEFORE the capacity check spends
+          // anything, the same refuse-before-allocate order as the rebinding
+          // gate above. 429 is what the refusals table declares for
+          // rate_limited.
+          const initKey = `mcp-init:${req.socket.remoteAddress ?? "unknown"}`;
+          if (initLimiter?.limited(initKey, true)) {
+            return jsonRpcError(res, 429, -32000, "Session initialization rate limit exceeded");
           }
           // Refused BEFORE allocating anything — the same principle as the
           // rebinding gate above. Capacity, so 503, matching what the

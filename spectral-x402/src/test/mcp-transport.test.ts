@@ -713,6 +713,70 @@ test("mcp: activity refreshes the TTL — a busy session outlives a quiet one", 
   );
 });
 
+/**
+ * The hole a ceiling and a TTL both miss.
+ *
+ * The session id IS the rate-limit identity for every paid call on this spoke,
+ * and the client decides when to stop using one. Release it and initialize
+ * again and the kernel's limiter sees a fresh `mcp:<uuid>` with a full bucket
+ * — anonymous-402 flood metering and fake-payment ledger-growth metering both
+ * evadable from one address, having paid nothing. `maxSessions` never sees it:
+ * every DELETE gives the slot straight back.
+ *
+ * So the loop is run for real — mint, DELETE, mint, DELETE — with capacity set
+ * far above the number of sessions ever live at once, so a refusal can only
+ * come from metering the ATTEMPT and not from running out of room.
+ */
+test("mcp: DELETE + re-initialize cannot refresh the limiter identity — creation is metered per address", async () => {
+  const ANON_MAX = 3;
+  await withTransport(
+    async ({ port }) => {
+      const minted: string[] = [];
+      for (let i = 0; i < ANON_MAX; i++) {
+        const sid = await openRaw(port);
+        minted.push(sid);
+        // Ended the way a client ends one. The slot comes back; the bucket
+        // does not.
+        const del = await fetch(`http://127.0.0.1:${port}/mcp`, {
+          method: "DELETE",
+          headers: { "mcp-session-id": sid },
+        });
+        assert.ok(del.status < 300, `DELETE should have ended the session: ${del.status}`);
+      }
+
+      assert.equal(new Set(minted).size, ANON_MAX, "each cycle really did mint a distinct identity");
+
+      // Nothing is live and the ceiling is 64, so capacity is not what
+      // answers here.
+      const refused = await rawPost(port, RAW_HEADERS, initializeBody());
+      assert.equal(refused.status, 429, `the ${ANON_MAX + 1}th mint from this address must be refused, not served`);
+      assert.notEqual(refused.status, 503, "a 503 would mean capacity refused it, which would prove nothing");
+      assert.equal(refused.headers["mcp-session-id"], undefined, "a refused initialize allocates nothing");
+
+      // Still refused after another release cycle: the bucket is windowed and
+      // spends on the attempt, so churn cannot pay it back.
+      assert.equal((await rawPost(port, RAW_HEADERS, initializeBody())).status, 429);
+    },
+    { maxSessions: 64, initRateLimit: { windowMs: 60_000, max: 120, anonymousMax: ANON_MAX } }
+  );
+});
+
+test("mcp: metering session creation leaves LIVE sessions and their paid calls alone", async () => {
+  await withTransport(
+    async ({ port }) => {
+      const sid = await openRaw(port);
+      // The address has now spent its single mint.
+      assert.equal((await rawPost(port, RAW_HEADERS, initializeBody())).status, 429);
+      // The session that already exists is untouched — the meter gates
+      // creation, never the requests a created session goes on to make.
+      for (let i = 0; i < 5; i++) {
+        assert.equal((await rawPost(port, withSession(sid), toolsListBody())).status, 200);
+      }
+    },
+    { maxSessions: 64, initRateLimit: { windowMs: 60_000, max: 120, anonymousMax: 1 } }
+  );
+});
+
 // ─── (j) a malformed payment is a payment fault, not a challenge ─────────────
 
 test("mcp: a present but undecodable x402/payment is refused, not downgraded to a challenge", async () => {

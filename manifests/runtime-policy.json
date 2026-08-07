@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
+  "paid": {
+    "port": 8787,
+    "bodyCapBytes": 65536,
+    "requireTls": true,
+    "cacheControl": "no-store",
+    "rateLimit": {
+      "windowSeconds": 60,
+      "maxRequests": 120,
+      "anonymous402MaxRequests": 30
+    }
+  },
+  "ops": {
+    "port": 8788,
+    "loopbackOnly": true,
+    "bodyCapBytes": 262144,
+    "auth": "ed25519-request-signature",
+    "rateLimit": {
+      "windowSeconds": 60,
+      "maxRequests": 5
+    },
+    "reconcileRequiresFlag": "--allow-reconcile"
+  },
+  "ledger": {
+    "journalMode": "WAL",
+    "synchronous": "FULL",
+    "busyTimeoutMs": 5000,
+    "writeTransaction": "BEGIN IMMEDIATE"
+  },
+  "networks": {
+    "allowed": [
+      "eip155:84532"
+    ],
+    "mainnetStartupBlocked": [
+      "eip155:8453"
+    ],
+    "mainnetGateArtifact": "manifests/mainnet-gate.json"
+  },
+  "revocation": {
+    "maxStalenessSeconds": 86400,
+    "staleBehavior": "fail-closed-unknown"
+  },
+  "perMount": {
+    "roblox-luau": {
+      "deadlineMsByOperation": {
+        "tile_fetch": 5,
+        "pack_inclusion_proof": 5,
+        "pack_manifest": 5
+      },
+      "maxResultBytesByOperation": {
+        "tile_fetch": 65536,
+        "pack_inclusion_proof": 16384,
+        "pack_manifest": 2097152
+      },
+      "limits": {
+        "maxPricePerCallAtomic": "1000",
+        "dailySettledValueCeilingAtomic": "50000000"
+      }
+    },
+    "medical-medlineplus": {
+      "deadlineMsByOperation": {
+        "tile_fetch": 5,
+        "pack_inclusion_proof": 5,
+        "pack_manifest": 5
+      },
+      "maxResultBytesByOperation": {
+        "tile_fetch": 131072,
+        "pack_inclusion_proof": 16384,
+        "pack_manifest": 4194304
+      },
+      "limits": {
+        "maxPricePerCallAtomic": "1000",
+        "dailySettledValueCeilingAtomic": "50000000"
+      }
+    }
+  }
+}

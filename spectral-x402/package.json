@@ -1,0 +1,43 @@
+{
+  "name": "spectral-x402",
+  "version": "0.1.0",
+  "private": true,
+  "description": "x402 mount kernel — seller-side payment kernel for sealed terrain packs. Durable ledger, adapter admission, content-addressed retrieval.",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node --test 'dist/test/**/*.test.js'",
+    "service:install": "bash service/ctl.sh install",
+    "service:uninstall": "bash service/ctl.sh uninstall",
+    "service:restart": "bash service/ctl.sh restart",
+    "service:status": "bash service/ctl.sh status",
+    "service:logs": "bash service/ctl.sh logs",
+    "service:health": "bash service/ctl.sh health"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@x402/core": "2.21.0",
+    "@x402/evm": "2.21.0",
+    "@x402/mcp": "2.21.0",
+    "better-sqlite3": "^11.10.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.19.40",
+    "typescript": "^5.9.3"
+  }
+}

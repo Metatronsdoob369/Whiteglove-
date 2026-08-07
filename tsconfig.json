@@ -11,5 +11,5 @@
     "declaration": true
   },
   "include": ["**/*.ts"],
-  "exclude": ["dist", "node_modules", "spectral-config", "silence-harness-eval"]
+  "exclude": ["dist", "node_modules", "spectral-config", "silence-harness-eval", "spectral-x402", "husk-production-scaffold"]
 }

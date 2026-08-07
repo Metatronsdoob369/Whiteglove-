@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
+  "tools": [
+    {
+      "name": "roblox_luau__tile_fetch",
+      "description": "tile_fetch over sealed pack roblox-luau-2026-08 (x402 metered, 500 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "cid"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          },
+          "cid": {
+            "type": "string",
+            "pattern": "^b2-256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "roblox_luau__pack_inclusion_proof",
+      "description": "pack_inclusion_proof over sealed pack roblox-luau-2026-08 (x402 metered, 200 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "cid"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          },
+          "cid": {
+            "type": "string",
+            "pattern": "^b2-256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "roblox_luau__pack_manifest",
+      "description": "pack_manifest over sealed pack roblox-luau-2026-08 (x402 metered, 1000 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "medical_medlineplus__tile_fetch",
+      "description": "tile_fetch over sealed pack medical-medlineplus-2026-08 (x402 metered, 300 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "cid"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          },
+          "cid": {
+            "type": "string",
+            "pattern": "^b2-256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "medical_medlineplus__pack_inclusion_proof",
+      "description": "pack_inclusion_proof over sealed pack medical-medlineplus-2026-08 (x402 metered, 150 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "cid"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          },
+          "cid": {
+            "type": "string",
+            "pattern": "^b2-256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "medical_medlineplus__pack_manifest",
+      "description": "pack_manifest over sealed pack medical-medlineplus-2026-08 (x402 metered, 1000 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          }
+        }
+      }
+    }
+  ]
+}

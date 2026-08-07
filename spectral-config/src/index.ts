@@ -42,3 +42,7 @@ import { auditDimensions } from "./manifest.schema.js";
 export function dimensionViolations() {
   return auditDimensions(MANIFEST);
 }
+
+// terrain-tile-v1 artifact layer (spec: docs/superpowers/specs/2026-08-05-terrain-tile-v1-design.md)
+export * from "./canon.js";
+export * from "./tile.schema.js";

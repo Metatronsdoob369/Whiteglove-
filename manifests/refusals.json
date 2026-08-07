@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
+  "codes": {
+    "payment_required": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "no usable payment presented; see challenge"
+    },
+    "payment_invalid": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "payment failed official verification"
+    },
+    "payment_expired": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "authorization expired before verification"
+    },
+    "payment_underpaid": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "amount below declared price"
+    },
+    "payment_wrong_asset": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "asset does not match requirements"
+    },
+    "payment_wrong_network": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "network does not match requirements"
+    },
+    "payment_wrong_recipient": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "recipient does not match payTo"
+    },
+    "settlement_rejected": {
+      "http": 402,
+      "retryable": false,
+      "meaning": "settlement definitively rejected; output locked"
+    },
+    "payment_id_missing": {
+      "http": 402,
+      "retryable": true,
+      "meaning": "X-Payment-Id header required"
+    },
+    "payment_id_fingerprint_conflict": {
+      "http": 409,
+      "retryable": false,
+      "meaning": "paymentId already bound to a different request"
+    },
+    "payment_id_channel_mismatch": {
+      "http": 409,
+      "retryable": false,
+      "meaning": "header paymentId disagrees with extension-carried identifier"
+    },
+    "call_in_progress": {
+      "http": 202,
+      "retryable": true,
+      "meaning": "a matching request is executing; retry with the same paymentId"
+    },
+    "entitlement_expired": {
+      "http": 410,
+      "retryable": false,
+      "meaning": "retry entitlement lapsed; issue a new paymentId"
+    },
+    "settlement_pending_review": {
+      "http": 503,
+      "retryable": true,
+      "meaning": "settlement outcome unresolved; quarantined for operator review"
+    },
+    "capability_unavailable": {
+      "http": 503,
+      "retryable": true,
+      "meaning": "adapter failed repeatedly; not a payment fault"
+    },
+    "daily_ceiling_reached": {
+      "http": 503,
+      "retryable": true,
+      "meaning": "operator-declared daily settled-value ceiling reached"
+    },
+    "tile_not_found": {
+      "http": 404,
+      "retryable": false,
+      "meaning": "unknown cid in this pack (content-address silence)"
+    },
+    "tile_withdrawn": {
+      "http": 451,
+      "retryable": false,
+      "meaning": "tile withdrawn per the signed status list"
+    },
+    "status_list_stale": {
+      "http": 503,
+      "retryable": true,
+      "meaning": "revocation status unknown past next_update; failing closed"
+    },
+    "args_invalid": {
+      "http": 400,
+      "retryable": false,
+      "meaning": "arguments failed strict schema validation"
+    },
+    "body_too_large": {
+      "http": 413,
+      "retryable": false,
+      "meaning": "request body exceeds the declared cap"
+    },
+    "rate_limited": {
+      "http": 429,
+      "retryable": true,
+      "meaning": "per-mount rate limit exceeded"
+    },
+    "tls_required": {
+      "http": 400,
+      "retryable": false,
+      "meaning": "paid route requires https; failing closed"
+    },
+    "mainnet_gate_unmet": {
+      "http": 503,
+      "retryable": false,
+      "meaning": "mainnet requires a valid signed evidence gate"
+    }
+  }
+}

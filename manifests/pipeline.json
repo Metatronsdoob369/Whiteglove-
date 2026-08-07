@@ -109,6 +109,19 @@
         "terrain_query"
       ],
       "note": "package.json shows refinery:finance, calibrate:finance, navigate:finance, ingest:finance — this path is actively being wired. FOLD DISAGREEMENT #1 sibling RESOLVED (arbitration, PR #26): mxbai-embed-large, same verification as roblox-luau."
+    },
+    "medical-medlineplus": {
+      "processor": "terrain-tile-seal",
+      "collection": "medical-medlineplus-2026-08",
+      "embed_model": "nomic-embed-text",
+      "dims": 768,
+      "receptacle": "tile_fetch",
+      "ingest_script": "spectral-terrain/engine/pack-emitter.ts --profile static",
+      "tools": [
+        "tile_fetch",
+        "pack_inclusion_proof",
+        "pack_manifest"
+      ]
     }
   }
 }

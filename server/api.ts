@@ -77,7 +77,7 @@ Never fabricate. Never hallucinate. Cite every shard.`,
       architectural_state: {
         vectorization: "SimHash-128 Hamming Space. Strict threshold enforcement.",
         ingestion_engine: "Shard-based. O(k) lookup via pre-built landmark index.",
-        cache_routing: "LFU cache with LRU tie-break. Keys salted BLAKE3. Drift guarded at Hamming ratio <= 0.325.",
+        cache_routing: "LFU cache with LRU tie-break. Keys salted FNV-1a (domain-separated). Drift guarded at Hamming ratio <= 0.325.",
       },
       execution_gating: {
         silence_policy: "strict",

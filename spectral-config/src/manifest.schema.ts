@@ -36,14 +36,16 @@ export const Processor = z.enum([
   "simhash-128",        // simhash-guard.ts — bitwise fingerprint index
   "eve-v2-gat",         // eve_v2.py — GAT + spectral over graphs
   "industry-signal-pca", // build_naics_3d_pack.py — 20-D fingerprint → PCA-3 display
+  "terrain-tile-seal",  // tile.schema.ts — working tiles in, sealed tiles + pack out
 ]);
 export type Processor = z.infer<typeof Processor>;
 
 /** Where refined product lands. */
 export const StoreKind = z.enum([
-  "qdrant",       // vector collection, cosine
-  "faiss-pack",   // signed terrain pack, L2-to-centroid (Zone 2 kernel)
-  "vault-index",  // vault/index.json — SimHash Hamming index
+  "qdrant",           // vector collection, cosine
+  "faiss-pack",       // signed terrain pack, L2-to-centroid (Zone 2 kernel)
+  "vault-index",      // vault/index.json — SimHash Hamming index
+  "sealed-tile-pack", // content-addressed signed tiles + merkle manifest (terrain-pack-v1)
 ]);
 export type StoreKind = z.infer<typeof StoreKind>;
 
@@ -60,6 +62,7 @@ export const RetrievalSignal = z.enum([
   "knn-temporal",      // nearest neighbor in temporal-concat space
   "contract-schema",   // Zod schema-refusal: "if it ain't in the schema it ain't real"
   "title-overlap-or-code", // sealed taxonomy: label overlap, or an exact code hit
+  "content-address",   // exact cid match; silence = 404 on unknown cid
   "none",              // pure consumer — silence delegated to an upstream receptacle
 ]);
 export type RetrievalSignal = z.infer<typeof RetrievalSignal>;
@@ -70,22 +73,47 @@ export type RetrievalSignal = z.infer<typeof RetrievalSignal>;
  * and an L2 shatter of 0.15 are not comparable numbers; each domain
  * carries its own, with provenance.
  */
-export const SilencePolicy = z.object({
-  enabled: z.boolean(),
-  signal: RetrievalSignal,
-  /** The gate. Lower-is-closer for hamming/l2/cosine-distance. */
-  threshold: z.number().min(0),
-  /** Direction guard so no one misreads the threshold. */
-  closerIs: z.enum(["lower", "higher"]),
-  /** Where this number came from — refuses "magic constant" drift. */
-  calibration: z.object({
-    calibrated: z.boolean(),
-    corpus: z.string().nullable(),
-    corpusSize: z.number().int().positive().nullable(),
-    date: z.string().nullable(),
-    note: z.string().nullable(),
-  }),
-});
+export const SilencePolicy = z
+  .object({
+    enabled: z.boolean(),
+    /**
+     * Gate discriminant. Absent means "threshold" (every pre-existing
+     * pipeline). Non-threshold gates (content-address exact match, Zod
+     * schema refusal) have NO distance — for those, threshold/closerIs
+     * must be ABSENT rather than a placeholder 0, which is exactly the
+     * "magic constant wearing a value's clothes" this schema refuses.
+     */
+    gate: z.enum(["threshold", "exact-match", "schema-refusal"]).optional(),
+    signal: RetrievalSignal,
+    /** The gate value. Lower-is-closer for hamming/l2/cosine-distance. */
+    threshold: z.number().min(0).optional(),
+    /** Direction guard so no one misreads the threshold. */
+    closerIs: z.enum(["lower", "higher"]).optional(),
+    /** Where this number came from — refuses "magic constant" drift. */
+    calibration: z.object({
+      calibrated: z.boolean(),
+      corpus: z.string().nullable(),
+      corpusSize: z.number().int().positive().nullable(),
+      date: z.string().nullable(),
+      note: z.string().nullable(),
+    }),
+  })
+  .superRefine((s, ctx) => {
+    const gate = s.gate ?? "threshold";
+    if (gate === "threshold") {
+      if (s.threshold === undefined || s.closerIs === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "threshold gate requires threshold and closerIs",
+        });
+      }
+    } else if (s.threshold !== undefined || s.closerIs !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${gate} gate has no distance — threshold/closerIs must be absent, not zero`,
+      });
+    }
+  });
 export type SilencePolicy = z.infer<typeof SilencePolicy>;
 
 /**
@@ -100,6 +128,109 @@ export const Dimensionality = z.object({
   temporalAxis: z.boolean(),
 });
 export type Dimensionality = z.infer<typeof Dimensionality>;
+
+/**
+ * Local logical name — resolved by the consumer from its own config.
+ * NEVER a URL: a reference the signed document controls is a document
+ * vouching for its own authority (the public_key_ref-as-URL defect).
+ */
+const logicalRef = z
+  .string()
+  .min(1)
+  .refine((s) => !/^[a-z][a-z0-9+.-]*:\/\//i.test(s), "logical name, not a URL");
+
+/**
+ * Commercial mount declaration for the x402 kernel. The kernel never reads
+ * this at runtime — codegen (generate:all) turns it into x402-routes.json
+ * and friends, and the kernel boots from those generated artifacts only.
+ * Spec: docs/superpowers/specs/2026-08-05-x402-mount-kernel-design.md
+ */
+export const CommercialBlock = z.object({
+  sold: z.boolean(),
+  unit: z.enum(["pack", "tile"]),
+  edition: z.string().regex(/^[a-z0-9][a-z0-9-]{2,63}$/),
+  /**
+   * Full enum kept deliberately so the kernel's startup refusal of
+   * non-read_only mounts is TESTABLE (child doc: "kernel rejects startup").
+   * The manifest-level refusal below makes it unrepresentable in a shipped
+   * config; the kernel re-asserts at boot.
+   */
+  effect: z.enum(["read_only", "state_changing", "irreversible"]),
+  replaySafe: z.boolean(),
+  capabilityVersion: z.string().min(1),
+  operations: z
+    .array(
+      z.object({
+        operationId: z.string().regex(/^[a-z][a-z0-9_]*$/),
+        /**
+         * The paid route this operation answers on, DECLARED — never inferred
+         * from the operationId. Absolute and mount-prefixed
+         * (`/roblox-luau/tile/{cid}`), because that is the string the generated
+         * artifacts publish and the HTTP edge matches against.
+         *
+         * The generator refuses a mount whose declared templates collide under
+         * first-match resolution (src/route-collision.ts); the schema only
+         * pins the shape. A defaulted template is exactly the defect that
+         * check exists to prevent, so there is deliberately no default here.
+         */
+        pathTemplate: z
+          .string()
+          .regex(
+            /^(\/[A-Za-z0-9_.-]+|\/\{[a-z][A-Za-z0-9_]*\})+$/,
+            "pathTemplate: /-separated literal segments and {placeholder} segments only"
+          ),
+        resultKind: z.enum(["pack-bytes", "manifest-json", "proof-json"]),
+        deadlineMs: z.number().int().positive().max(1000),
+        maxResultBytes: z.number().int().positive(),
+        /** price per call in atomic units of price.asset, decimal-integer string */
+        priceAtomic: z.string().regex(/^[1-9][0-9]*$/),
+      })
+    )
+    .min(1),
+  substrate: z.object({
+    kind: z.literal("sealed-pack"),
+    /** logical pack name resolved by the kernel's SubstrateRegistry */
+    packRef: logicalRef,
+    trustStoreRef: logicalRef,
+    statusListRef: logicalRef,
+    /**
+     * What geometry the sold tiles carry.
+     *   transition-only  — temporal residuals, no raw embeddings
+     *   static-position  — a single mapped position + scores
+     *   full-concat      — raw per-third embeddings (REFUSED in Phase 1:
+     *                      partially invertible over third-party source)
+     */
+    geometryProfile: z.enum(["transition-only", "static-position", "full-concat"]),
+  }),
+  price: z.object({
+    scheme: z.literal("exact"), // batch/auth-capture/upto refused by construction
+    networks: z.array(z.string().regex(/^eip155:[0-9]+$/)).min(1),
+    asset: z.string().min(1),
+    /** logical name resolved from the runtime secret store — never a literal address */
+    payToRef: logicalRef,
+  }),
+  challengeEpoch: z.string().min(1),
+  retryEntitlementSeconds: z.number().int().positive(),
+  resultRetentionSeconds: z.number().int().positive(),
+  fingerprintVersion: z.string().min(1),
+  limits: z.object({
+    maxPricePerCallAtomic: z.string().regex(/^[1-9][0-9]*$/),
+    dailySettledValueCeilingAtomic: z.string().regex(/^[1-9][0-9]*$/),
+  }),
+  licenseGate: z.object({
+    denyLicenses: z.array(z.string()).min(1),
+    forbiddenKeysVersion: z.literal("SEALED_FORBIDDEN_KEYS@1"),
+    commitmentKeyId: z.string().min(1),
+  }),
+  compensation: z.object({
+    entitlementExtension: z.boolean(),
+    makeGood: z.boolean(),
+    onchainRefund: z.literal(false), // Phase 1 has no onchain refund; say so machine-readably
+    policyRef: logicalRef,
+    disputeChannel: z.string().min(1),
+  }),
+});
+export type CommercialBlock = z.infer<typeof CommercialBlock>;
 
 /** A single pipeline: one data type, refined one way, served one way. */
 export const DomainPipeline = z.object({
@@ -211,6 +342,16 @@ export const DomainPipeline = z.object({
 
   /** free-form provenance so an agent knows how alive this path is */
   notes: z.string().optional(),
+
+  /**
+   * Distribution posture — orthogonal to `provenance` (data origin).
+   * Absent means internal-only. "sealed-paid" without a `commercial`
+   * block is refused at manifest level: no selling without a declared gate.
+   */
+  distribution: z.enum(["internal-only", "sealed-public", "sealed-paid"]).optional(),
+
+  /** Commercial mount declaration — consumed by codegen into x402 artifacts. */
+  commercial: CommercialBlock.optional(),
 });
 export type DomainPipeline = z.infer<typeof DomainPipeline>;
 
@@ -233,6 +374,75 @@ export const DomainManifest = z.object({
     temporalDims: z.number().int().positive(),
   }),
   pipelines: z.array(DomainPipeline).min(1),
+}).superRefine((m, ctx) => {
+  // L1 commercial refusals — fire only where a pipeline declares commerce.
+  // A config that fails here is not a valid manifest; the refinery refuses
+  // it rather than guessing (the founding rule of this file).
+  m.pipelines.forEach((p, i) => {
+    const at = (field: string) => ["pipelines", i, ...field.split(".")];
+    if (p.distribution === "sealed-paid" && !p.commercial) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("distribution"),
+        message: `"${p.id}": sealed-paid without a commercial block — no selling without a declared gate`,
+      });
+    }
+    const c = p.commercial;
+    if (!c) return;
+    if (c.effect !== "read_only") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("commercial.effect"),
+        message: `"${p.id}": payment alone can never authorize state-changing or irreversible work`,
+      });
+    }
+    if (c.replaySafe !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("commercial.replaySafe"),
+        message: `"${p.id}": a paid mount must be replay-safe — the same payment retried returns identical bytes`,
+      });
+    }
+    if (c.substrate.geometryProfile === "full-concat") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("commercial.substrate.geometryProfile"),
+        message: `"${p.id}": full-concat ships raw embeddings of third-party source — refused in Phase 1`,
+      });
+    }
+    if (/^0x[0-9a-fA-F]{40}$/.test(c.price.payToRef)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("commercial.price.payToRef"),
+        message: `"${p.id}": payToRef is a logical name resolved from the secret store, never a literal address`,
+      });
+    }
+    // Dimensionality is a property of input style, frozen at the paid
+    // boundary (locked 2026-08-05). Non-commercial pipelines get the soft
+    // auditDimensions flag; paid mounts get refusal.
+    const d = p.dimensionality;
+    if (d.temporalAxis && d.dims !== m.dimensionPolicy.temporalDims) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("dimensionality.dims"),
+        message: `"${p.id}": paid temporal mount must be ${m.dimensionPolicy.temporalDims}-D`,
+      });
+    }
+    if (!d.temporalAxis && d.dims > m.dimensionPolicy.maxStaticDims) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("dimensionality.dims"),
+        message: `"${p.id}": paid static mount above maxStaticDims ${m.dimensionPolicy.maxStaticDims}`,
+      });
+    }
+    if (c.limits && BigInt(c.limits.maxPricePerCallAtomic) > BigInt(c.limits.dailySettledValueCeilingAtomic)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: at("commercial.limits"),
+        message: `"${p.id}": per-call price exceeds the daily ceiling`,
+      });
+    }
+  });
 });
 export type DomainManifest = z.infer<typeof DomainManifest>;
 
@@ -253,6 +463,43 @@ export function auditDimensions(m: DomainManifest): Array<{ id: string; dims: nu
         id: p.id,
         dims: p.dimensionality.dims,
         reason: `static pipeline at ${p.dimensionality.dims}-D exceeds maxStaticDims ${m.dimensionPolicy.maxStaticDims}`,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Layer-2 seal-policy audit — flags, never refuses (same philosophy as
+ * auditDimensions). A structurally valid paid pipeline with an honest gap
+ * parses fine AND shows up here as the to-do list.
+ */
+export function auditSealPolicy(m: DomainManifest): Array<{ id: string; reason: string }> {
+  const out: Array<{ id: string; reason: string }> = [];
+  for (const p of m.pipelines) {
+    if (p.distribution !== "sealed-paid") continue;
+    const gate = p.silence.gate ?? "threshold";
+    if (gate === "threshold" && !p.silence.calibration.calibrated) {
+      out.push({
+        id: p.id,
+        reason:
+          "sealed-paid behind an uncalibrated threshold gate — sell content-addressed ops only until calibration closes",
+      });
+    }
+    if (gate === "threshold" && p.silence.threshold === 0) {
+      out.push({ id: p.id, reason: "placeholder threshold (0) on a paid path" });
+    }
+    if (
+      p.commercial &&
+      p.commercial.substrate.geometryProfile === "full-concat" &&
+      !p.commercial.licenseGate.denyLicenses.includes("NOASSERTION")
+    ) {
+      out.push({ id: p.id, reason: "shipping embeddings without denying unlicensed sources" });
+    }
+    if (p.commercial && p.dimensionality.temporalAxis && p.commercial.unit === "tile" && p.store.kind === "qdrant" && !p.secondaryStore) {
+      out.push({
+        id: p.id,
+        reason: "paid substrate must be a sealed pack; authoring store is qdrant with no sealed secondaryStore declared",
       });
     }
   }

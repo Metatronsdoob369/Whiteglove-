@@ -99,6 +99,60 @@ export const domains: DomainManifest = {
         "FOLD DISAGREEMENT #1 RESOLVED (arbitration, PR #26): mxbai-embed-large — " +
         "both embed models are active on the Pi, but every ingest script " +
         "hardcodes mxbai-embed-large.",
+
+      // Paid mount (x402 kernel). Sold ops are content-addressed ONLY —
+      // the kNN gate above stays uncalibrated and is deliberately NOT sold;
+      // auditSealPolicy flags that gap until Track C closes it.
+      distribution: "sealed-paid",
+      commercial: {
+        sold: true,
+        unit: "tile",
+        edition: "roblox-luau-2026-08",
+        effect: "read_only",
+        replaySafe: true,
+        capabilityVersion: "1.0.0",
+        // pathTemplate is DECLARED per operation, never inferred from the
+        // operationId. Generation refuses two operations of one mount whose
+        // shapes a first-match resolver cannot tell apart (src/route-collision.ts).
+        operations: [
+          { operationId: "tile_fetch", pathTemplate: "/roblox-luau/tile/{cid}", resultKind: "pack-bytes", deadlineMs: 5, maxResultBytes: 65536, priceAtomic: "500" },
+          { operationId: "pack_inclusion_proof", pathTemplate: "/roblox-luau/proof/{cid}", resultKind: "proof-json", deadlineMs: 5, maxResultBytes: 16384, priceAtomic: "200" },
+          { operationId: "pack_manifest", pathTemplate: "/roblox-luau/manifest", resultKind: "manifest-json", deadlineMs: 5, maxResultBytes: 2097152, priceAtomic: "1000" },
+        ],
+        substrate: {
+          kind: "sealed-pack",
+          packRef: "roblox-luau-2026-08",
+          trustStoreRef: "terrain-keys",
+          statusListRef: "roblox-luau-status",
+          geometryProfile: "transition-only",
+        },
+        price: {
+          scheme: "exact",
+          networks: ["eip155:84532"], // Base Sepolia; eip155:8453 only via the signed mainnet gate
+          asset: "USDC",
+          payToRef: "roblox-luau-payto",
+        },
+        challengeEpoch: "2026-08-05.1",
+        retryEntitlementSeconds: 86400,
+        resultRetentionSeconds: 86400,
+        fingerprintVersion: "fp-v1",
+        limits: {
+          maxPricePerCallAtomic: "1000",
+          dailySettledValueCeilingAtomic: "50000000", // $50/day at USDC 6 decimals — chosen in advance
+        },
+        licenseGate: {
+          denyLicenses: ["NOASSERTION", "LicenseRef-Proprietary"],
+          forbiddenKeysVersion: "SEALED_FORBIDDEN_KEYS@1",
+          commitmentKeyId: "nodeout-prov-2026a",
+        },
+        compensation: {
+          entitlementExtension: true,
+          makeGood: true,
+          onchainRefund: false,
+          policyRef: "compensation-policy-v1",
+          disputeChannel: "mailto:preston@marshpress.co",
+        },
+      },
     },
 
     // ─── OPERATIONAL: legal corpus, topological ───────────────────────
@@ -566,6 +620,114 @@ export const domains: DomainManifest = {
         "navigate:finance, ingest:finance — this path is actively being wired. " +
         "FOLD DISAGREEMENT #1 sibling RESOLVED (arbitration, PR #26): " +
         "mxbai-embed-large, same verification as roblox-luau.",
+    },
+
+    // ─── SOLD: MedlinePlus static terrain, content-addressed ──────────────
+    // Distinct from `medical-corpus`, which is the 128-D SimHash vault path
+    // and is marked pipeline-test-fixture. This one is the 768-D nomic
+    // projection that actually ships: MedlinePlus is US federal public
+    // domain, so the retrievable text may cross the paid boundary — which
+    // for a retrieval endpoint IS the product.
+    {
+      id: "medical-medlineplus",
+      description:
+        "MedlinePlus static terrain sold by content address. Mapped position " +
+        "plus geometric scores plus the retrievable text. Public domain, so " +
+        "no licensing gate beyond locator suppression.",
+      status: "operational",
+      dataType: "medical-medlineplus-chunks",
+      geometry: "topological",
+      processor: "terrain-tile-seal",
+      dimensionality: {
+        dims: 768,
+        rationale:
+          "nomic-embed-text native 768-D. Static domain — a single vector, " +
+          "no temporal concatenation, at the dimension policy ceiling.",
+        temporalAxis: false,
+      },
+      store: {
+        kind: "sealed-tile-pack",
+        location: "medical-medlineplus-2026-08",
+        embedModel: "nomic-embed-text",
+        endpoint: null, // sealed pack on local disk — immutable, hence replay-safe
+        distanceMetric: null,
+      },
+      ingest: {
+        script: "spectral-terrain/engine/pack-emitter.ts --profile static",
+        refineryStage: "terrain-tile-seal",
+      },
+      receptacle: {
+        kind: "http-service",
+        ref: "spectral-x402/src/server.ts",
+        tools: ["tile_fetch", "pack_inclusion_proof", "pack_manifest"],
+      },
+      silence: {
+        enabled: true,
+        // Exact cid match: silence is a 404 on an unknown address. No
+        // distance, so no threshold and no calibration claim — the gate
+        // discriminant exists precisely so this cannot ship a placeholder 0.
+        gate: "exact-match",
+        signal: "content-address",
+        calibration: {
+          calibrated: true,
+          corpus: "MedlinePlus 2026-08 sealed pack",
+          corpusSize: 1999,
+          date: "2026-08-06",
+          note:
+            "Content-addressed retrieval needs no swept threshold: a cid " +
+            "either resolves in the sealed pack or it does not. Verified by " +
+            "egress digest check on every paid call.",
+        },
+      },
+      provenance: "production",
+      distribution: "sealed-paid",
+      commercial: {
+        sold: true,
+        unit: "tile",
+        edition: "medical-medlineplus-2026-08",
+        effect: "read_only",
+        replaySafe: true,
+        capabilityVersion: "1.0.0",
+        // Declared, not inferred — see the roblox-luau mount above.
+        operations: [
+          { operationId: "tile_fetch", pathTemplate: "/medical-medlineplus/tile/{cid}", resultKind: "pack-bytes", deadlineMs: 5, maxResultBytes: 131072, priceAtomic: "300" },
+          { operationId: "pack_inclusion_proof", pathTemplate: "/medical-medlineplus/proof/{cid}", resultKind: "proof-json", deadlineMs: 5, maxResultBytes: 16384, priceAtomic: "150" },
+          { operationId: "pack_manifest", pathTemplate: "/medical-medlineplus/manifest", resultKind: "manifest-json", deadlineMs: 5, maxResultBytes: 4194304, priceAtomic: "1000" },
+        ],
+        substrate: {
+          kind: "sealed-pack",
+          packRef: "medical-medlineplus-2026-08",
+          trustStoreRef: "terrain-keys",
+          statusListRef: "medical-medlineplus-status",
+          geometryProfile: "static-position",
+        },
+        price: {
+          scheme: "exact",
+          networks: ["eip155:84532"],
+          asset: "USDC",
+          payToRef: "medical-medlineplus-payto",
+        },
+        challengeEpoch: "2026-08-06.1",
+        retryEntitlementSeconds: 86400,
+        resultRetentionSeconds: 86400,
+        fingerprintVersion: "fp-v1",
+        limits: {
+          maxPricePerCallAtomic: "1000",
+          dailySettledValueCeilingAtomic: "50000000",
+        },
+        licenseGate: {
+          denyLicenses: ["NOASSERTION", "LicenseRef-Proprietary"],
+          forbiddenKeysVersion: "SEALED_FORBIDDEN_KEYS@1",
+          commitmentKeyId: "nodeout-prov-2026a",
+        },
+        compensation: {
+          entitlementExtension: true,
+          makeGood: true,
+          onchainRefund: false,
+          policyRef: "compensation-policy-v1",
+          disputeChannel: "mailto:preston@marshpress.co",
+        },
+      },
     },
   ],
 };

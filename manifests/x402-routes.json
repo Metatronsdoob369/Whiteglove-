@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
+  "mounts": [
+    {
+      "mountId": "roblox-luau",
+      "capabilityVersion": "1.0.0",
+      "edition": "roblox-luau-2026-08",
+      "effect": "read_only",
+      "replaySafe": true,
+      "substrate": {
+        "kind": "sealed-pack",
+        "packRef": "roblox-luau-2026-08",
+        "trustStoreRef": "terrain-keys",
+        "statusListRef": "roblox-luau-status",
+        "geometryProfile": "transition-only"
+      },
+      "challengeEpoch": "2026-08-05.1",
+      "fingerprintVersion": "fp-v1",
+      "retryEntitlementSeconds": 86400,
+      "resultRetentionSeconds": 86400,
+      "limits": {
+        "maxPricePerCallAtomic": "1000",
+        "dailySettledValueCeilingAtomic": "50000000"
+      },
+      "licenseGate": {
+        "denyLicenses": [
+          "NOASSERTION",
+          "LicenseRef-Proprietary"
+        ],
+        "forbiddenKeysVersion": "SEALED_FORBIDDEN_KEYS@1",
+        "commitmentKeyId": "nodeout-prov-2026a"
+      },
+      "price": {
+        "scheme": "exact",
+        "networks": [
+          "eip155:84532"
+        ],
+        "asset": "USDC",
+        "payToRef": "roblox-luau-payto"
+      },
+      "routes": [
+        {
+          "operationId": "tile_fetch",
+          "method": "GET",
+          "pathTemplate": "/roblox-luau/tile/{cid}",
+          "resultKind": "pack-bytes",
+          "deadlineMs": 5,
+          "maxResultBytes": 65536,
+          "priceAtomic": "500"
+        },
+        {
+          "operationId": "pack_inclusion_proof",
+          "method": "GET",
+          "pathTemplate": "/roblox-luau/proof/{cid}",
+          "resultKind": "proof-json",
+          "deadlineMs": 5,
+          "maxResultBytes": 16384,
+          "priceAtomic": "200"
+        },
+        {
+          "operationId": "pack_manifest",
+          "method": "GET",
+          "pathTemplate": "/roblox-luau/manifest",
+          "resultKind": "manifest-json",
+          "deadlineMs": 5,
+          "maxResultBytes": 2097152,
+          "priceAtomic": "1000"
+        }
+      ]
+    },
+    {
+      "mountId": "medical-medlineplus",
+      "capabilityVersion": "1.0.0",
+      "edition": "medical-medlineplus-2026-08",
+      "effect": "read_only",
+      "replaySafe": true,
+      "substrate": {
+        "kind": "sealed-pack",
+        "packRef": "medical-medlineplus-2026-08",
+        "trustStoreRef": "terrain-keys",
+        "statusListRef": "medical-medlineplus-status",
+        "geometryProfile": "static-position"
+      },
+      "challengeEpoch": "2026-08-06.1",
+      "fingerprintVersion": "fp-v1",
+      "retryEntitlementSeconds": 86400,
+      "resultRetentionSeconds": 86400,
+      "limits": {
+        "maxPricePerCallAtomic": "1000",
+        "dailySettledValueCeilingAtomic": "50000000"
+      },
+      "licenseGate": {
+        "denyLicenses": [
+          "NOASSERTION",
+          "LicenseRef-Proprietary"
+        ],
+        "forbiddenKeysVersion": "SEALED_FORBIDDEN_KEYS@1",
+        "commitmentKeyId": "nodeout-prov-2026a"
+      },
+      "price": {
+        "scheme": "exact",
+        "networks": [
+          "eip155:84532"
+        ],
+        "asset": "USDC",
+        "payToRef": "medical-medlineplus-payto"
+      },
+      "routes": [
+        {
+          "operationId": "tile_fetch",
+          "method": "GET",
+          "pathTemplate": "/medical-medlineplus/tile/{cid}",
+          "resultKind": "pack-bytes",
+          "deadlineMs": 5,
+          "maxResultBytes": 131072,
+          "priceAtomic": "300"
+        },
+        {
+          "operationId": "pack_inclusion_proof",
+          "method": "GET",
+          "pathTemplate": "/medical-medlineplus/proof/{cid}",
+          "resultKind": "proof-json",
+          "deadlineMs": 5,
+          "maxResultBytes": 16384,
+          "priceAtomic": "150"
+        },
+        {
+          "operationId": "pack_manifest",
+          "method": "GET",
+          "pathTemplate": "/medical-medlineplus/manifest",
+          "resultKind": "manifest-json",
+          "deadlineMs": 5,
+          "maxResultBytes": 4194304,
+          "priceAtomic": "1000"
+        }
+      ]
+    }
+  ]
+}

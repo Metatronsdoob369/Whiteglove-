@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
+  "canonicalization": {
+    "rule": "jcs-rfc8785 + no-json-floats + nfc-required",
+    "canonVersion": 1,
+    "hash": "blake2b-512-truncated-32",
+    "cidPrefix": "b2-256:"
+  },
+  "requestFingerprint": {
+    "version": "fp-v1",
+    "inputs": [
+      "operationId",
+      "capabilityVersion",
+      "adapterVersion",
+      "argDigest",
+      "scheme",
+      "network",
+      "asset",
+      "amountAtomic",
+      "payTo",
+      "substratePackId"
+    ]
+  },
+  "authorizationFingerprint": {
+    "version": "fp-v1",
+    "inputs": [
+      "requestFingerprint",
+      "paymentNonce",
+      "paymentExpiry",
+      "payer"
+    ],
+    "maxPerPaymentId": 3,
+    "refusedAtOrAfterState": "settling"
+  }
+}

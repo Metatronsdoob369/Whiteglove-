@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  co.marshpress.x402 — the paid mount kernel as a supervised service.
+
+  Deliberately carries NO configuration. Every value comes from
+  spectral-x402/.env.local, which is gitignored, so this file is safe to
+  commit and the secrets never enter git.
+
+  Install:  npm run service:install
+  Status:   npm run service:status
+  Logs:     npm run service:logs
+  Remove:   npm run service:uninstall
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>co.marshpress.x402</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__NODE__</string>
+		<string>__ROOT__/dist/server.js</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>__ROOT__</string>
+
+	<!-- Restart whenever the process is not running, including a clean exit:
+	     a server that has stopped is a server that should be started. -->
+	<key>KeepAlive</key>
+	<true/>
+
+	<key>RunAtLoad</key>
+	<true/>
+
+	<!-- Boot refuses loudly on bad config (unresolved payTo, artifact drift,
+	     failed seal). Without a throttle that becomes a hot restart loop that
+	     buries the reason; 10s keeps the log readable and the CPU idle. -->
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+
+	<key>StandardOutPath</key>
+	<string>__ROOT__/logs/x402.out.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>__ROOT__/logs/x402.err.log</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>NODE_ENV</key>
+		<string>production</string>
+	</dict>
+
+	<!-- SIGTERM triggers the drain path in server.ts; give it room to finish
+	     in-flight calls and close the ledger before launchd escalates. -->
+	<key>ExitTimeOut</key>
+	<integer>15</integer>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

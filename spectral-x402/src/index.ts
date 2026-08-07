@@ -42,7 +42,7 @@ export { RateLimiter } from "./limiter.js";
 export type { RateLimitPolicy } from "./limiter.js";
 
 // ── boot: ledger + mounts + kernel, with or without an HTTP listener
-export { boot, bootKernelOnly, rateLimitPolicyFrom } from "./server.js";
+export { boot, bootKernelOnly } from "./server.js";
 export type {
   BootOptions,
   KernelBootOptions,

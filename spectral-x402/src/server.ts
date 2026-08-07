@@ -26,7 +26,6 @@ import { buildAdapterRegistry, type Adapter } from "./adapter.js";
 import { StubFacilitator, HttpFacilitator, type FacilitatorClient } from "./facilitator.js";
 import { createPaidServer } from "./http.js";
 import { assertNoRouteCollisions } from "./route-collision.js";
-import type { RateLimitPolicy } from "./limiter.js";
 import { assertNoSpendingKeysInEnv, envVarForRef, resolvePayTo, SecretRefusal } from "./secrets.js";
 import { KERNEL_VERSION } from "./version.js";
 
@@ -87,23 +86,6 @@ export interface McpToolDeclaration {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
-}
-
-/**
- * The verified runtime policy's rate limits, in the shape a `RateLimiter`
- * takes.
- *
- * Exported because the MCP edge meters session creation with the SAME declared
- * ceilings the kernel meters paid calls with, and two places converting
- * seconds-to-milliseconds is two places that can disagree about what the
- * operator declared.
- */
-export function rateLimitPolicyFrom(policy: RuntimePolicy): RateLimitPolicy {
-  return {
-    windowMs: policy.paid.rateLimit.windowSeconds * 1000,
-    max: policy.paid.rateLimit.maxRequests,
-    anonymousMax: policy.paid.rateLimit.anonymous402MaxRequests,
-  };
 }
 
 export interface BootedKernel {
@@ -346,7 +328,17 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
 
   // The declared ceiling, enforced once behind the kernel boundary — the same
   // numbers the HTTP edge used to hold, now shared with every future spoke.
-  const kernel = new Kernel(ledger, mounts, facilitator, rateLimitPolicyFrom(policy), adapterRegistry);
+  const kernel = new Kernel(
+    ledger,
+    mounts,
+    facilitator,
+    {
+      windowMs: policy.paid.rateLimit.windowSeconds * 1000,
+      max: policy.paid.rateLimit.maxRequests,
+      anonymousMax: policy.paid.rateLimit.anonymous402MaxRequests,
+    },
+    adapterRegistry
+  );
   return {
     kernel,
     ledger,

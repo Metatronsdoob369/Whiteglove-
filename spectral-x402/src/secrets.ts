@@ -84,21 +84,37 @@ export function resolvePayTo(ref: string, env: NodeJS.ProcessEnv = process.env):
 }
 
 /**
- * Boot-time sweep: refuse to start if ANY X402_* variable is key-shaped,
- * regardless of which ref it belongs to. Belt and suspenders around
+ * Env var names that are NOT `X402_*` but must still never hold a key in the
+ * SERVER's environment. The settlement-gate harness reads `PAYER_PRIVATE_KEY`
+ * as a one-shot fallback to the Keychain (secrets note in the module header);
+ * it belongs to that SEPARATE process alone. An operator who exported it in the
+ * shell that then launches the server would put a spending key in the key-less
+ * seller's environment — and the `X402_*`-prefixed sweep below is blind to it
+ * precisely because the name was chosen to stay out of that namespace. Name it
+ * explicitly so the guard is not.
+ */
+const WATCHED_NON_PREFIXED_KEY_NAMES = ["PAYER_PRIVATE_KEY"];
+
+/**
+ * Boot-time sweep: refuse to start if any watched variable is key-shaped —
+ * every `X402_*` (regardless of which ref it belongs to) and the harness's
+ * documented `PAYER_PRIVATE_KEY` fallback. Belt and suspenders around
  * resolvePayTo, because the cost of being wrong here is unrecoverable.
  */
 export function assertNoSpendingKeysInEnv(env: NodeJS.ProcessEnv = process.env): void {
   const offenders: string[] = [];
   for (const [name, value] of Object.entries(env)) {
-    if (!name.startsWith("X402_")) continue;
+    const watched = name.startsWith("X402_") || WATCHED_NON_PREFIXED_KEY_NAMES.includes(name);
+    if (!watched) continue;
     if (value && looksLikeSpendingKey(value)) offenders.push(name);
   }
   if (offenders.length > 0) {
     throw new SecretRefusal(
       "SECRET_KEY_SHAPED",
       `Refusing to start: ${offenders.join(", ")} hold key-shaped values. ` +
-        `The seller is key-less — it needs public addresses only. Rotate those secrets.`
+        `The seller is key-less — it needs public addresses only, and the payer ` +
+        `key belongs solely to the settlement-gate harness process (from the ` +
+        `Keychain), never the server's environment. Rotate/unset those secrets.`
     );
   }
 }

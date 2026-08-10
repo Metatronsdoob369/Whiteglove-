@@ -3,3 +3,4 @@ dist/
 packs/
 ledger.db*
 logs/
+dist-gate/

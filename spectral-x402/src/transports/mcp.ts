@@ -95,6 +95,7 @@ import {
 import type { Network, PaymentRequired, SettleResponse } from "@x402/core/types";
 import { Kernel, type KernelOutcome, type PaidInvocation } from "../kernel.js";
 import type { PaymentPayload } from "../facilitator.js";
+import { decodePaymentEnvelope } from "../x402-wire.js";
 import type { McpToolDeclaration } from "../server.js";
 import { KERNEL_VERSION } from "../version.js";
 
@@ -383,19 +384,33 @@ export function createPaidMcpServer(kernel: Kernel, opts: McpOptions): http.Serv
 
       let payment: PaymentPayload | undefined;
       if (envelope) {
-        // The x402 envelope's `payload` is the SCHEME-SPECIFIC slot, and what
-        // our scheme puts there is the same flat payload the HTTP edge
-        // carries in X-Payment. Nothing is cross-filled from `accepted`:
-        // asserting the terms is the facilitator's job, and an edge that
-        // "helpfully" filled them in would be manufacturing agreement.
-        const inner = envelope.payload as Partial<PaymentPayload> | undefined;
-        // The ledger digests the nonce unconditionally. A missing or
-        // non-string one would throw mid-`handle()`, after admission and
-        // before any outcome — so it is refused here, as a payment fault.
-        if (!inner || typeof inner.nonce !== "string") {
-          return refusalResult("payment_invalid", undefined, "payment payload carries no nonce");
+        // Two shapes arrive in this one slot, and the same helper the HTTP edge
+        // uses separates them — parity by sharing the decision, not by
+        // reimplementing it on each spoke.
+        const wire = decodePaymentEnvelope(envelope);
+        if (wire.kind === "invalid") {
+          return refusalResult("payment_invalid", undefined, wire.detail);
         }
-        payment = inner as PaymentPayload;
+        if (wire.kind === "payment") {
+          // A STANDARD envelope: the flat fields are read out of the signed
+          // authorization, and the envelope itself rides along untouched for
+          // the facilitator. Still nothing cross-filled from `accepted` —
+          // asserting the terms is the facilitator's job, and an edge that
+          // "helpfully" filled them in would be manufacturing agreement.
+          payment = wire.payment;
+        } else {
+          // The x402 envelope's `payload` is the SCHEME-SPECIFIC slot, and what
+          // our scheme puts there is the same flat payload the HTTP edge
+          // carries in X-Payment.
+          const inner = envelope.payload as Partial<PaymentPayload> | undefined;
+          // The ledger digests the nonce unconditionally. A missing or
+          // non-string one would throw mid-`handle()`, after admission and
+          // before any outcome — so it is refused here, as a payment fault.
+          if (!inner || typeof inner.nonce !== "string") {
+            return refusalResult("payment_invalid", undefined, "payment payload carries no nonce");
+          }
+          payment = inner as PaymentPayload;
+        }
       }
 
       const inv: PaidInvocation = {

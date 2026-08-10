@@ -23,10 +23,11 @@ import { Ledger } from "./ledger.js";
 import { Substrate, canonicalize, cidOf, type TrustEntry } from "./substrate.js";
 import { Kernel, BUILTIN_ADAPTERS, type Mount, type MountOperation } from "./kernel.js";
 import { buildAdapterRegistry, type Adapter } from "./adapter.js";
-import { StubFacilitator, HttpFacilitator, type FacilitatorClient } from "./facilitator.js";
+import { StubFacilitator, StandardFacilitator, type FacilitatorClient } from "./facilitator.js";
 import { createPaidServer } from "./http.js";
 import { assertNoRouteCollisions } from "./route-collision.js";
 import { assertNoSpendingKeysInEnv, envVarForRef, resolvePayTo, SecretRefusal } from "./secrets.js";
+import { assertMountsTranslatable } from "./x402-wire.js";
 import { KERNEL_VERSION } from "./version.js";
 
 export interface KernelBootOptions {
@@ -274,7 +275,9 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
   let facilitator = opts.facilitator;
   if (!facilitator) {
     if (process.env.X402_FACILITATOR_URL) {
-      facilitator = new HttpFacilitator(
+      // `id` stays "http": it is written into every receipt's `facilitator_id`,
+      // so renaming the class must not rename rows in a live ledger.
+      facilitator = new StandardFacilitator(
         process.env.X402_FACILITATOR_URL,
         process.env.X402_FACILITATOR_API_KEY,
         "http"
@@ -324,6 +327,17 @@ export async function bootKernelOnly(opts: KernelBootOptions): Promise<BootedKer
         `one address instead of its declared payToRef. Set ${vars} to the real public ` +
         `receiving address, or drop X402_FACILITATOR_URL to run the local simulation.`
     );
+  }
+
+  // A translating facilitator resolves each mount's symbolic asset to an
+  // on-chain contract address at the boundary. That resolution keys on the SDK's
+  // per-network default-asset name, so a symbol that is right for one network can
+  // be wrong for another ("USDC" on Base Sepolia vs "USD Coin" on Base mainnet).
+  // Prove every mount translates NOW, so an untranslatable one is a fail-closed
+  // boot refusal an operator sees at once rather than a 503 on the first paid
+  // call. Skipped for the stub, which never resolves an address.
+  if (facilitator.id !== "stub") {
+    assertMountsTranslatable([...mounts.values()].map((m) => ({ mountId: m.mountId, network: m.network, asset: m.asset })));
   }
 
   // The declared ceiling, enforced once behind the kernel boundary — the same

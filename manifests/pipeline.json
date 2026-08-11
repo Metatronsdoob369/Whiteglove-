@@ -122,6 +122,18 @@
         "pack_inclusion_proof",
         "pack_manifest"
       ]
+    },
+    "fintel-paper-arena": {
+      "processor": "terrain-tile-seal",
+      "collection": "fintel-paper-arena-2026-08",
+      "dims": 1,
+      "receptacle": "tile_fetch",
+      "ingest_script": "spectral-x402/scripts/cut-fintel-pack.ts",
+      "tools": [
+        "tile_fetch",
+        "pack_inclusion_proof",
+        "pack_manifest"
+      ]
     }
   }
 }

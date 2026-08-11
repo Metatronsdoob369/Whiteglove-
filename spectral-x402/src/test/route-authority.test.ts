@@ -95,7 +95,7 @@ const extraRoute = (over: Partial<RouteEntry>): RouteEntry => ({
 
 // ─── the real thing still boots ──────────────────────────────────────────────
 
-test("route authority: the six real routes boot, unchanged", async () => {
+test("route authority: the nine real routes boot, unchanged", async () => {
   await withTmpDir(async (dir) => {
     const core = await bootWith(MANIFESTS, dir);
     try {
@@ -106,6 +106,9 @@ test("route authority: the six real routes boot, unchanged", async () => {
       assert.deepEqual(
         shapes.sort(),
         [
+          "/fintel-paper-arena/manifest",
+          "/fintel-paper-arena/proof/{cid}",
+          "/fintel-paper-arena/tile/{cid}",
           "/medical-medlineplus/manifest",
           "/medical-medlineplus/proof/{cid}",
           "/medical-medlineplus/tile/{cid}",

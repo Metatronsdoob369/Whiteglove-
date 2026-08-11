@@ -51,7 +51,7 @@ async function withServer(fn: (ctx: { url: string; b: Booted }) => Promise<void>
 
 // ─── discovery: resource strings come straight from pathTemplate ───────────
 
-test("routing: discovery publishes the exact resource shapes for both mounts, unchanged", async () => {
+test("routing: discovery publishes the exact resource shapes for every mount, unchanged", async () => {
   await withServer(async ({ url }) => {
     const res = await fetch(`${url}/.well-known/x402`);
     assert.equal(res.status, 200);
@@ -68,7 +68,11 @@ test("routing: discovery publishes the exact resource shapes for both mounts, un
     assert.equal(byOp("medical-medlineplus", "pack_inclusion_proof")?.resource, "/medical-medlineplus/proof/{cid}");
     assert.equal(byOp("medical-medlineplus", "pack_manifest")?.resource, "/medical-medlineplus/manifest");
 
-    assert.equal(body.resources.length, 6, "exactly three operations per mount, two mounts");
+    assert.equal(byOp("fintel-paper-arena", "tile_fetch")?.resource, "/fintel-paper-arena/tile/{cid}");
+    assert.equal(byOp("fintel-paper-arena", "pack_inclusion_proof")?.resource, "/fintel-paper-arena/proof/{cid}");
+    assert.equal(byOp("fintel-paper-arena", "pack_manifest")?.resource, "/fintel-paper-arena/manifest");
+
+    assert.equal(body.resources.length, 9, "exactly three operations per mount, three mounts");
   });
 });
 

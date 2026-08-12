@@ -13,6 +13,13 @@ jobs:
   docs-health:
     name: Scheduled Docs Hygiene
     runs-on: ubuntu-latest
+    # Secrets are hoisted to job env because the `secrets` context is not
+    # available inside step `if:` expressions — referencing it there makes
+    # the whole workflow file invalid, which GitHub reports as an instant
+    # 0-second failure on EVERY push, regardless of this workflow's triggers.
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,9 +132,8 @@ jobs:
             }
 
       - name: Notify Slack on failure
-        if: steps.docs_check.outcome == 'failure' && secrets.SLACK_WEBHOOK_URL != ''
+        if: steps.docs_check.outcome == 'failure' && env.SLACK_WEBHOOK_URL != ''
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
           SHA: ${{ github.sha }}
@@ -140,9 +146,8 @@ jobs:
           curl -fsSL -X POST -H "Content-Type: application/json" -d "$payload" "$SLACK_WEBHOOK_URL"
 
       - name: Notify Teams on failure
-        if: steps.docs_check.outcome == 'failure' && secrets.TEAMS_WEBHOOK_URL != ''
+        if: steps.docs_check.outcome == 'failure' && env.TEAMS_WEBHOOK_URL != ''
         env:
-          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
           SHA: ${{ github.sha }}

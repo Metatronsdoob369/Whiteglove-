@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  co.marshpress.x402.morning — the daily 08:00 check-in.
+
+  Runs morning-check.sh once a day at 08:00 LOCAL time (launchd calendar
+  intervals are local, so no UTC math and DST takes care of itself). The
+  script reports service health, live mount count, witness-chain audit, and
+  the latest witness headline to Telegram — reports, never mutates.
+
+  No configuration here; ctl.sh renders the placeholders at install.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>co.marshpress.x402.morning</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>__ROOT__/scripts/morning-check.sh</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>__ROOT__</string>
+
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>8</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+
+	<key>RunAtLoad</key>
+	<false/>
+
+	<key>StandardOutPath</key>
+	<string>__ROOT__/logs/morning.out.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>__ROOT__/logs/morning.err.log</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

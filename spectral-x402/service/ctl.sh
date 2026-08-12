@@ -13,9 +13,12 @@ TEMPLATE="$ROOT/service/$LABEL.plist"
 TARGET="$HOME/Library/LaunchAgents/$LABEL.plist"
 WTEMPLATE="$ROOT/service/$WLABEL.plist"
 WTARGET="$HOME/Library/LaunchAgents/$WLABEL.plist"
+MLABEL="co.marshpress.x402.morning"
+MTEMPLATE="$ROOT/service/$MLABEL.plist"
+MTARGET="$HOME/Library/LaunchAgents/$MLABEL.plist"
 DOMAIN="gui/$(id -u)"
 
-usage() { echo "usage: ctl.sh {install|uninstall|start|stop|restart|status|logs|health|witness}"; exit 1; }
+usage() { echo "usage: ctl.sh {install|uninstall|start|stop|restart|status|logs|health|witness|check}"; exit 1; }
 [ $# -ge 1 ] || usage
 
 render() {
@@ -24,8 +27,10 @@ render() {
   mkdir -p "$HOME/Library/LaunchAgents" "$ROOT/logs"
   sed -e "s|__NODE__|$node|g" -e "s|__ROOT__|$ROOT|g" "$TEMPLATE" > "$TARGET"
   sed -e "s|__NODE__|$node|g" -e "s|__ROOT__|$ROOT|g" "$WTEMPLATE" > "$WTARGET"
+  sed -e "s|__NODE__|$node|g" -e "s|__ROOT__|$ROOT|g" "$MTEMPLATE" > "$MTARGET"
   echo "rendered $TARGET"
   echo "rendered $WTARGET"
+  echo "rendered $MTARGET"
   echo "  node $node"
   echo "  root $ROOT"
 }
@@ -53,13 +58,17 @@ case "$1" in
     launchctl bootout "$DOMAIN/$WLABEL" 2>/dev/null || true
     launchctl bootstrap "$DOMAIN" "$WTARGET"
     launchctl enable "$DOMAIN/$WLABEL"
-    echo "installed and started $LABEL (+ daily witness $WLABEL)"
+    launchctl bootout "$DOMAIN/$MLABEL" 2>/dev/null || true
+    launchctl bootstrap "$DOMAIN" "$MTARGET"
+    launchctl enable "$DOMAIN/$MLABEL"
+    echo "installed and started $LABEL (+ daily witness 00:15, + morning check 08:00)"
     ;;
   uninstall)
     launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
     launchctl bootout "$DOMAIN/$WLABEL" 2>/dev/null || true
-    rm -f "$TARGET" "$WTARGET"
-    echo "uninstalled $LABEL and $WLABEL"
+    launchctl bootout "$DOMAIN/$MLABEL" 2>/dev/null || true
+    rm -f "$TARGET" "$WTARGET" "$MTARGET"
+    echo "uninstalled $LABEL, $WLABEL, $MLABEL"
     ;;
   start)   launchctl kickstart -k "$DOMAIN/$LABEL"; echo "started" ;;
   stop)    launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true; echo "stopped" ;;
@@ -86,6 +95,10 @@ case "$1" in
     launchctl kickstart "$DOMAIN/$WLABEL" 2>/dev/null \
       && echo "witness cut kicked ($WLABEL); tail logs/witness.out.log" \
       || { "$(command -v node)" "$ROOT/dist-gate/scripts/cut-witness.js" cut; }
+    ;;
+  check)
+    # Run the morning check now, outside the 08:00 schedule.
+    bash "$ROOT/scripts/morning-check.sh"
     ;;
   *) usage ;;
 esac

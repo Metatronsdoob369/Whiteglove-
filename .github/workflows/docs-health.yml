@@ -155,37 +155,36 @@ jobs:
         run: |
           set -euo pipefail
           RUN_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
-          payload=$(python3 - <<'PY'
-import json, os
-text = f"Docs Health Check FAILED for {os.environ['REPO']} on branch {os.environ['REF_NAME']} at commit {os.environ['SHA']}."
-run_url = f"https://github.com/{os.environ['REPO']}/actions/runs/{os.environ['RUN_ID']}"
-card = {
-  "@type": "MessageCard",
-  "@context": "http://schema.org/extensions",
-  "summary": "Docs Health Check Failure",
-  "themeColor": "E81123",
-  "title": "Docs Health Check Failure",
-  "text": text,
-  "sections": [
-    {
-      "facts": [
-        {"name": "Repository", "value": os.environ["REPO"]},
-        {"name": "Branch", "value": os.environ["REF_NAME"]},
-        {"name": "Commit", "value": os.environ["SHA"]},
-      ]
-    }
-  ],
-  "potentialAction": [
-    {
-      "@type": "OpenUri",
-      "name": "View Workflow Run",
-      "targets": [{"os": "default", "uri": run_url}],
-    }
-  ],
-}
-print(json.dumps(card))
-PY
-)
+          # jq, not a python heredoc: heredoc bodies must sit at column 0 for
+          # python, but a column-0 line TERMINATES this YAML block scalar and
+          # invalidates the whole workflow file. jq is indentation-neutral.
+          payload=$(jq -n \
+            --arg repo "$REPO" \
+            --arg branch "$REF_NAME" \
+            --arg sha "$SHA" \
+            --arg url "$RUN_URL" \
+            '{
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              summary: "Docs Health Check Failure",
+              themeColor: "E81123",
+              title: "Docs Health Check Failure",
+              text: ("Docs Health Check FAILED for " + $repo + " on branch " + $branch + " at commit " + $sha + "."),
+              sections: [
+                { facts: [
+                    { name: "Repository", value: $repo },
+                    { name: "Branch", value: $branch },
+                    { name: "Commit", value: $sha }
+                ] }
+              ],
+              potentialAction: [
+                {
+                  "@type": "OpenUri",
+                  name: "View Workflow Run",
+                  targets: [ { os: "default", uri: $url } ]
+                }
+              ]
+            }')
           curl -fsSL -X POST -H "Content-Type: application/json" -d "$payload" "$TEAMS_WEBHOOK_URL"
 
       - name: Fail workflow if check failed

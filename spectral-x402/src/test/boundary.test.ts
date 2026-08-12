@@ -543,7 +543,7 @@ test("boundary: a third mount over an existing sealed pack boots and delivers wi
       const mount = e.core.mounts.get(THIRD_MOUNT);
       assert.ok(mount, "the manifest edit alone must produce a live mount");
       assert.equal(mount.substrate.packId, THIRD_PACK, "serving the real pack, seal verified at boot");
-      assert.equal(e.core.mounts.size, 3);
+      assert.equal(e.core.mounts.size, 4);
 
       const cid = tileCid(e.core, THIRD_MOUNT, 0);
       // Paid at the NEW mount's declared price, not the source mount's 300.

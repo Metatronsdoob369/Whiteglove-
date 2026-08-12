@@ -183,6 +183,7 @@ async function withMock(mode: MockMode, fn: (c: Ctx) => Promise<void>): Promise<
   delete process.env.X402_ALLOW_STUB_FACILITATOR;
   process.env.X402_PAYTO_ROBLOX_LUAU_PAYTO = PAY_TO;
   process.env.X402_PAYTO_MEDICAL_MEDLINEPLUS_PAYTO = PAY_TO;
+  process.env.X402_PAYTO_FINTEL_PAPER_ARENA_PAYTO = PAY_TO;
   let b: Booted | undefined;
   try {
     b = await boot({
@@ -443,6 +444,7 @@ test("standard: boot builds a real facilitator from the environment alone", asyn
   delete process.env.X402_ALLOW_STUB_FACILITATOR;
   process.env.X402_PAYTO_ROBLOX_LUAU_PAYTO = PAY_TO;
   process.env.X402_PAYTO_MEDICAL_MEDLINEPLUS_PAYTO = PAY_TO;
+  process.env.X402_PAYTO_FINTEL_PAPER_ARENA_PAYTO = PAY_TO;
   try {
     const core = await bootKernelOnly({
       manifestsDir: MANIFESTS,
@@ -470,6 +472,7 @@ test("standard: a real facilitator paired with an overridden payTo still refuses
   process.env.X402_FACILITATOR_URL = "http://127.0.0.1:1";
   process.env.X402_PAYTO_ROBLOX_LUAU_PAYTO = PAY_TO;
   process.env.X402_PAYTO_MEDICAL_MEDLINEPLUS_PAYTO = PAY_TO;
+  process.env.X402_PAYTO_FINTEL_PAPER_ARENA_PAYTO = PAY_TO;
   try {
     await assert.rejects(
       () =>

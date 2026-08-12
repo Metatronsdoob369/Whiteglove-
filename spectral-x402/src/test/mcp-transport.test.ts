@@ -202,7 +202,7 @@ test("mcp: tools/list is the generated artifact, verbatim", async () => {
     const listed = await client.listTools();
     assert.deepEqual(listed.tools, PUBLISHED.tools, "tools/list must not differ from mcp-tools.json in any field");
     // Guard the guard: an empty artifact would make the deepEqual vacuous.
-    assert.equal(listed.tools.length, 6, "three operations per mount, two mounts");
+    assert.equal(listed.tools.length, 9, "three operations per mount, three mounts");
   });
 });
 

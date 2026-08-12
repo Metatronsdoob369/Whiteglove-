@@ -3,12 +3,12 @@
   "description": "GENERATED from spectral-config/config/domains.config.ts — do not hand-edit. Regenerate with `npm run generate:all` in spectral-config/.",
   "canonVersion": 1,
   "artifacts": {
-    "x402-routes.json": "b2-256:5cd44a4b0e75b6c60a4962d4620300a8838f194d3488ef608d3ecc5cdb02768c",
-    "openapi.json": "b2-256:7e8f1eb25e237388fcba7fc34370e3f502c2dd99d6833419e575db4bde59d002",
-    "discovery.json": "b2-256:5aad86fc9c77e3a43b7e07e88fce9a059e64577850ce7eab6fa39e7583a8651d",
-    "catalog.json": "b2-256:b572051b0227f4806e75e7bfe9a6e6d0589908ccc345c174fdce766f8f637488",
-    "mcp-tools.json": "b2-256:9714014fa124446f14061007ada72594594ff93a1e3462e7e8aeea232cd37b2c",
-    "runtime-policy.json": "b2-256:7c350c0585d1cc9a8238319f9a13a078d02cadda2c79428782218d61f0b70cab",
+    "x402-routes.json": "b2-256:c4bfe612f4ab9ed069a08b3a0e0ab26c53cc451e9fd05308b1c2f9182e213fca",
+    "openapi.json": "b2-256:6250ae5b8e464aac9c8c82de5bace474a9d99382ac41bdbd14522872459cd4a1",
+    "discovery.json": "b2-256:9d10adc3a31a3f13ed9e53ebdf918f05b2589188e0e944e841f98c994af8aa81",
+    "catalog.json": "b2-256:6ea6b5312eac4b81a4daaa7abf59b37e57ab37dac32f0fdc96c9bfbf7cdecd5b",
+    "mcp-tools.json": "b2-256:0eee486078ae7daa4b9664ebeb510107275fd3d979af494cec04a1da5e1e5e73",
+    "runtime-policy.json": "b2-256:498db2362971f011d45dc6ed7e5b46c7619ea2245c364ab989787b60a0df3e3b",
     "fingerprint-spec.json": "b2-256:d8b59478e4ead6cd2514f64e9954c8d718a34e2e5a1adc7706f522e1b1194656",
     "refusals.json": "b2-256:4db6a1ace5b72f67cf3a4b0a049d8976f90dc67de343a3530d635abeb499546e"
   }

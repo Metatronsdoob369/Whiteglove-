@@ -123,6 +123,67 @@
           }
         }
       }
+    },
+    {
+      "name": "fintel_paper_arena__tile_fetch",
+      "description": "tile_fetch over sealed pack fintel-paper-arena-2026-08 (x402 metered, 200 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "cid"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          },
+          "cid": {
+            "type": "string",
+            "pattern": "^b2-256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "fintel_paper_arena__pack_inclusion_proof",
+      "description": "pack_inclusion_proof over sealed pack fintel-paper-arena-2026-08 (x402 metered, 100 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "cid"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          },
+          "cid": {
+            "type": "string",
+            "pattern": "^b2-256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "fintel_paper_arena__pack_manifest",
+      "description": "pack_manifest over sealed pack fintel-paper-arena-2026-08 (x402 metered, 800 atomic USDC)",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId"
+        ],
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{16,128}$"
+          }
+        }
+      }
     }
   ]
 }

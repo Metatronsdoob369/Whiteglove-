@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  co.marshpress.x402.witness — the daily witness cut, supervised.
+
+  Cuts one signed attestation from the live ledger every day at 00:15 and
+  verifies the whole chain afterward (the cutter does both). Runs the
+  COMPILED cutter; ctl.sh preflight refuses to install until it exists.
+
+  Same discipline as the service plist: no configuration here, no secrets,
+  placeholders rendered by ctl.sh at install time.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>co.marshpress.x402.witness</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__NODE__</string>
+		<string>__ROOT__/dist-gate/scripts/cut-witness.js</string>
+		<string>cut</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>__ROOT__</string>
+
+	<!-- A scheduled job, not a daemon: run at 00:15 daily, exit, done.
+	     If the machine was asleep at 00:15, launchd fires it on wake. -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>0</integer>
+		<key>Minute</key>
+		<integer>15</integer>
+	</dict>
+
+	<key>RunAtLoad</key>
+	<false/>
+
+	<key>StandardOutPath</key>
+	<string>__ROOT__/logs/witness.out.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>__ROOT__/logs/witness.err.log</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

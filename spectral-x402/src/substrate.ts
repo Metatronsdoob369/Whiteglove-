@@ -137,7 +137,7 @@ export interface TrustEntry {
 }
 
 /** Ed25519 raw 32-byte key → SPKI DER, so node:crypto can import it. */
-function rawEd25519ToSpki(raw: Buffer): Buffer {
+export function rawEd25519ToSpki(raw: Buffer): Buffer {
   return Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), raw]);
 }
 

@@ -108,3 +108,9 @@ export {
 
 // ── fail-closed secret handling
 export { assertNoSpendingKeysInEnv, resolvePayTo, SecretRefusal } from "./secrets.js";
+
+// ── the witness chain: the kernel's own commerce record, sealed. This is the
+// trust layer the token gate reads — cut from the ledger, chained by content
+// address, verified against the local trust store.
+export { cutWitness, verifyWitnessChain, witnessCid, WitnessRefusal, WITNESS_SCHEMA } from "./witness.js";
+export type { WitnessBody, WitnessSeal, WitnessFile, CutWitnessOptions } from "./witness.js";

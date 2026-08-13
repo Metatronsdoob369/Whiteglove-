@@ -26,6 +26,10 @@
     "service:status": "bash service/ctl.sh status",
     "service:logs": "bash service/ctl.sh logs",
     "service:health": "bash service/ctl.sh health",
+    "service:witness": "bash service/ctl.sh witness",
+    "service:check": "bash service/ctl.sh check",
+    "witness:cut": "tsc -p tsconfig.gate.json && node dist-gate/scripts/cut-witness.js cut",
+    "witness:verify": "tsc -p tsconfig.gate.json && node dist-gate/scripts/cut-witness.js verify",
     "gate:settlement": "tsc -p tsconfig.gate.json && node dist-gate/scripts/settlement-gate.js",
     "typecheck:gate": "tsc -p tsconfig.gate.json --noEmit"
   },

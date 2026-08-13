@@ -1,0 +1,57 @@
+{
+  "witness": {
+    "schema": "x402-witness-v1",
+    "canon_version": 1,
+    "index": 1,
+    "prev_cid": null,
+    "cut_at": "2026-08-13T14:59:18.402Z",
+    "ledger": {
+      "calls_total": 10,
+      "calls_by_state": {
+        "delivered": 8,
+        "execution_failed": 2
+      },
+      "receipts_success_total": 8,
+      "settled_volume": [
+        {
+          "mount_id": "medical-medlineplus",
+          "asset": "USDC",
+          "network": "eip155:84532",
+          "amount_atomic_total": "2500"
+        },
+        {
+          "mount_id": "roblox-luau",
+          "asset": "USDC",
+          "network": "eip155:84532",
+          "amount_atomic_total": "1500"
+        }
+      ],
+      "unique_payers": 5,
+      "deliveries_by_transport": {
+        "http": 12
+      },
+      "replay_deliveries": 4,
+      "quarantine_open": 0
+    },
+    "invariants": {
+      "checks": {
+        "success_receipt_without_result": 0,
+        "terminal_paid_state_without_success_receipt": 0,
+        "duplicate_success_receipts": 0,
+        "delivery_without_success_receipt": 0,
+        "binding_without_call": 0,
+        "receipt_without_call": 0
+      },
+      "breaches": 0
+    }
+  },
+  "seal": {
+    "seal_schema": "x402-witness-seal-v1",
+    "cid": "b2-256:487574aeb51c7377458421e3ac79cab7e731549d0fb897e5c7c8fe5804f708cf",
+    "canon_version": 1,
+    "signer": "nodeout-terrain-2026a-382509f3",
+    "sig": "K8K8EfHaq+wY6muSyHFFONAvf3ZJIiHH9LFHEV3unzfqy+jLC5hB/cArpJ2XdmXZl7OaRNa3zElQidBP9KSSDA==",
+    "signed_at": "2026-08-13T14:59:18.402Z",
+    "sig_scope": "status"
+  }
+}

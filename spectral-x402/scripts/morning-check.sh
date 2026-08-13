@@ -19,7 +19,10 @@ CUTTER="$ROOT/dist-gate/scripts/cut-witness.js"
 LOG="$ROOT/logs/morning-check.log"
 TELEGRAM_ENV="${TELEGRAM_ENV:-$HOME/.claude/channels/telegram/.env}"
 TG_CHAT_ID="${TG_CHAT_ID:-6985719694}"
-NODE="$(command -v node || echo node)"
+# Prefer the injected NODE (the plist pins the install-time nvm path): the
+# PATH fallback can resolve homebrew Node 26, which better-sqlite3 v11
+# refuses — the cutter's verify would false-alarm on every morning report.
+NODE="${NODE:-$(command -v node || echo node)}"
 STAMP="$(date '+%Y-%m-%d %H:%M %Z')"
 
 # ── service health ────────────────────────────────────────────────────────────

@@ -44,6 +44,10 @@
 	<dict>
 		<key>PATH</key>
 		<string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<!-- Pinned at render time. PATH resolution can find homebrew Node 26,
+		     which better-sqlite3 v11 refuses to load under. -->
+		<key>NODE</key>
+		<string>__NODE__</string>
 	</dict>
 
 	<key>ProcessType</key>

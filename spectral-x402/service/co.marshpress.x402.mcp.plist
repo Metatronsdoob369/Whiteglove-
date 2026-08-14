@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  co.marshpress.x402.mcp — the second door, supervised.
+
+  The paid HTTP surface (co.marshpress.x402) and the MCP Streamable HTTP
+  surface are two independent listeners on their own ports — that's the
+  transport-neutral design, not an oversight. Both read the SAME
+  spectral-x402/.env.local (payTo, facilitator, bind, TLS posture), so
+  arming one without the other silently leaves half the published contract
+  untested. Port comes from X402_MCP_PORT in .env.local (default 8789 if
+  unset, per mcp-server.ts).
+
+  No configuration here, no secrets, placeholders rendered by ctl.sh at
+  install time — same discipline as the other three units.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>co.marshpress.x402.mcp</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__NODE__</string>
+		<string>__ROOT__/dist/mcp-server.js</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>__ROOT__</string>
+
+	<key>KeepAlive</key>
+	<true/>
+
+	<key>RunAtLoad</key>
+	<true/>
+
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+
+	<key>StandardOutPath</key>
+	<string>__ROOT__/logs/mcp.out.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>__ROOT__/logs/mcp.err.log</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>NODE_ENV</key>
+		<string>production</string>
+	</dict>
+
+	<key>ExitTimeOut</key>
+	<integer>15</integer>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

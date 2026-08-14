@@ -16,6 +16,9 @@ WTARGET="$HOME/Library/LaunchAgents/$WLABEL.plist"
 MLABEL="co.marshpress.x402.morning"
 MTEMPLATE="$ROOT/service/$MLABEL.plist"
 MTARGET="$HOME/Library/LaunchAgents/$MLABEL.plist"
+CLABEL="co.marshpress.x402.mcp"
+CTEMPLATE="$ROOT/service/$CLABEL.plist"
+CTARGET="$HOME/Library/LaunchAgents/$CLABEL.plist"
 DOMAIN="gui/$(id -u)"
 
 usage() { echo "usage: ctl.sh {install|uninstall|start|stop|restart|status|logs|health|witness|check}"; exit 1; }
@@ -28,9 +31,11 @@ render() {
   sed -e "s|__NODE__|$node|g" -e "s|__ROOT__|$ROOT|g" "$TEMPLATE" > "$TARGET"
   sed -e "s|__NODE__|$node|g" -e "s|__ROOT__|$ROOT|g" "$WTEMPLATE" > "$WTARGET"
   sed -e "s|__NODE__|$node|g" -e "s|__ROOT__|$ROOT|g" "$MTEMPLATE" > "$MTARGET"
+  sed -e "s|__NODE__|$node|g" -e "s|__ROOT__|$ROOT|g" "$CTEMPLATE" > "$CTARGET"
   echo "rendered $TARGET"
   echo "rendered $WTARGET"
   echo "rendered $MTARGET"
+  echo "rendered $CTARGET"
   echo "  node $node"
   echo "  root $ROOT"
 }
@@ -40,6 +45,7 @@ preflight() {
   # worse than no agent: it buries the reason in restart noise.
   [ -f "$ROOT/dist/server.js" ] || { echo "REFUSED: dist/server.js missing — run npm run build"; exit 1; }
   [ -f "$ROOT/dist-gate/scripts/cut-witness.js" ] || { echo "REFUSED: witness cutter not compiled — run npm run witness:verify once"; exit 1; }
+  [ -f "$ROOT/dist/mcp-server.js" ] || { echo "REFUSED: dist/mcp-server.js missing — run npm run build"; exit 1; }
   if [ ! -f "$ROOT/.env.local" ] && [ ! -f "$ROOT/.env" ]; then
     echo "WARNING: no .env.local — the service will boot with a dev payTo placeholder."
     echo "         Copy .env.example and fill in the PUBLIC receiving address."
@@ -61,14 +67,18 @@ case "$1" in
     launchctl bootout "$DOMAIN/$MLABEL" 2>/dev/null || true
     launchctl bootstrap "$DOMAIN" "$MTARGET"
     launchctl enable "$DOMAIN/$MLABEL"
-    echo "installed and started $LABEL (+ daily witness 00:15, + morning check 08:00)"
+    launchctl bootout "$DOMAIN/$CLABEL" 2>/dev/null || true
+    launchctl bootstrap "$DOMAIN" "$CTARGET"
+    launchctl enable "$DOMAIN/$CLABEL"
+    echo "installed and started $LABEL (+ MCP door + daily witness 00:15 + morning check 08:00)"
     ;;
   uninstall)
     launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
     launchctl bootout "$DOMAIN/$WLABEL" 2>/dev/null || true
     launchctl bootout "$DOMAIN/$MLABEL" 2>/dev/null || true
-    rm -f "$TARGET" "$WTARGET" "$MTARGET"
-    echo "uninstalled $LABEL, $WLABEL, $MLABEL"
+    launchctl bootout "$DOMAIN/$CLABEL" 2>/dev/null || true
+    rm -f "$TARGET" "$WTARGET" "$MTARGET" "$CTARGET"
+    echo "uninstalled $LABEL, $WLABEL, $MLABEL, $CLABEL"
     ;;
   start)   launchctl kickstart -k "$DOMAIN/$LABEL"; echo "started" ;;
   stop)    launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true; echo "stopped" ;;

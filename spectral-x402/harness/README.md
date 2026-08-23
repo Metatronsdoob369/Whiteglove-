@@ -35,4 +35,5 @@ no TypeScript in this directory, no imports from `src/`, no plist points here.
 | `ci-fixture-packs.sh` | Builds throwaway sealed packs so the suite runs on a clean checkout (CI). Refuses anywhere a signing key or sealed edition already exists. |
 | `fixtures/` | Deterministic synthetic inputs for the fintel fixture pack. |
 | `maintenance-check.sh` | The H0 runner — 8 read-only probes, each transcribed to `evidence/hermes/maintenance-<UTC>/` with sha256s in `run-manifest.json`. |
+| `local-ci.sh` | The CI gate run locally: same two jobs as `quality.yml` (kernel suite + drift gate) in a disposable worktree, transcribed with a PASS/FAIL manifest. The merge gate when GitHub Actions is locked or gone. |
 | `missions/` | Mission specs H0 (maintenance), H1 (witness backfill), H2 (mount a pack). |

@@ -40,6 +40,60 @@ jobs:
       - name: Run regression suites
         run: npm test
 
+  x402-kernel:
+    name: x402 Kernel (full test suite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: spectral-x402
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        # Pinned to 20: better-sqlite3 v11 refuses newer majors (the morning
+        # check needed the same pin — see commit 5be102e).
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: spectral-x402/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build kernel + gate scripts (fixture builders live in dist/ and dist-gate/)
+        run: npx tsc && npx tsc -p tsconfig.gate.json
+
+      - name: Build fixture packs (packs/ is gitignored; the suite loads sealed packs by edition)
+        run: bash harness/ci-fixture-packs.sh
+
+      - name: Run the kernel suite
+        run: npm test
+
+  config-drift:
+    name: Manifest No-Drift Gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: spectral-config
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: spectral-config/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Regenerate into memory and byte-compare against committed manifests
+        run: npm run check:drift
+
   finish-line:
     name: Finish Line (fixture corpus)
     runs-on: ubuntu-latest

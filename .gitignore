@@ -18,6 +18,10 @@ silence-harness-eval/results/results.json
 silence-harness-eval/results/report.md
 !silence-harness-eval/corpus/*.jsonl
 
+# Hermes harness: the deterministic fintel fixture must ship despite the
+# global *.jsonl rule — CI builds the fixture pack from it.
+!spectral-x402/harness/fixtures/*.jsonl
+
 # Contains hardcoded auth keys — never commit
 brain/spectral/pod_bootstrap.sh
 

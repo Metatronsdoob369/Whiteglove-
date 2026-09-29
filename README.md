@@ -2,6 +2,8 @@
 
 Answers only when it can cite the exact source; otherwise stays silent. Built for high‑risk data like medical and legal.
 
+![Real retrieval run (fixture corpus): one hit with citation, one silenced no-match](docs/whiteglove-retrieval-demo.png)
+
 ### What this repo contains
 - A SimHash‑128 retrieval pipeline that returns source text and citations, not guesses.
 - A small HTTP API you can run locally.

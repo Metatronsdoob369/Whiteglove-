@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "WhiteGlove Agent Husk"
+version = "1.0.0"
+id = "artifacts/whiteglove-husk"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18540
+
+[services.development]
+run = "pnpm --filter @workspace/whiteglove-husk run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/whiteglove-husk", "run", "build" ]
+publicDir = "artifacts/whiteglove-husk/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18540"
+BASE_PATH = "/"

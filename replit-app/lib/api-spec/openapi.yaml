@@ -1,0 +1,178 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: husk
+    description: WhiteGlove Husk shard retrieval
+paths:
+  /husk/query:
+    post:
+      operationId: huskQuery
+      tags: [husk]
+      summary: Query the Husk agent harness
+      description: Multi-turn tool-calling loop over the SimHash-128 shard vault. Returns verified shard text or deliberate silence with the measured Hamming distance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HuskQueryInput"
+      responses:
+        "200":
+          description: Shard result or silence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HuskQueryResult"
+  /husk/shards:
+    get:
+      operationId: huskShards
+      tags: [husk]
+      summary: List the shard vault
+      description: Returns every shard currently indexed in the vault.
+      responses:
+        "200":
+          description: All shards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HuskShard"
+  /husk/log:
+    get:
+      operationId: huskLog
+      tags: [husk]
+      summary: Recent decision log
+      description: >-
+        Returns the most recent query decisions, including silenced ones.
+        Raw query text is never exposed: each entry carries a sha256 hash
+        prefix of the query instead. Raw queries remain in the database for
+        audit only.
+      responses:
+        "200":
+          description: Decision log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HuskDecision"
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+components:
+  schemas:
+    HuskQueryInput:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+    HuskQueryResult:
+      type: object
+      required: [query, silenced, verdict]
+      properties:
+        query:
+          type: string
+        silenced:
+          type: boolean
+        verdict:
+          type: string
+          enum: [answered, silenced]
+        text:
+          type: ["string", "null"]
+        citations:
+          type: ["string", "null"]
+        concept:
+          type: ["string", "null"]
+        distance:
+          type: ["number", "null"]
+          description: Best normalized Hamming distance measured by the gate
+        threshold:
+          type: number
+        gateVeto:
+          type: ["string", "null"]
+          enum: [distance, overlap, null]
+          description: >-
+            Non-null when the model tried to answer and the server-side gate
+            vetoed it ("distance" = too far, "overlap" = no meaningful
+            lexical overlap with the shard). Null when the model abstained on
+            its own, or when the query was answered.
+        sharedTokens:
+          type: ["integer", "null"]
+          description: Content tokens shared between the query side and the candidate shard
+        fingerprint:
+          type: string
+        turns:
+          type: integer
+          description: Number of agent loop turns taken
+    HuskShard:
+      type: object
+      required: [id, concept, source, text, fingerprint]
+      properties:
+        id:
+          type: integer
+        concept:
+          type: string
+        source:
+          type: string
+        text:
+          type: string
+        fingerprint:
+          type: string
+        createdAt:
+          type: string
+    HuskDecision:
+      type: object
+      required: [id, query, fingerprint, threshold, verdict]
+      properties:
+        id:
+          type: integer
+        query:
+          type: string
+          description: >-
+            Never the raw query text. A redacted identifier of the form
+            "sha256:<first 12 hex chars of the query digest>", so sensitive
+            medical context is not publicly readable while entries remain
+            correlatable.
+        fingerprint:
+          type: string
+        bestDistance:
+          type: ["string", "null"]
+        threshold:
+          type: string
+        verdict:
+          type: string
+        concept:
+          type: ["string", "null"]
+        toolCalls:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
